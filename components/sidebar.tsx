@@ -28,7 +28,7 @@ export const workspaceNav: NavEntry[] = [
   { label: 'Arena', icon: LayoutGrid, href: '/arena' },
   { label: 'Image Studio', icon: ImageIcon, href: '/image' },
   { label: 'Skills', icon: Puzzle, href: '/skills' },
-  { label: 'Agents', icon: Bot, soon: true },
+  { label: 'Agents', icon: Bot, href: '/agents' },
   { label: 'Flows', icon: Workflow, href: '/flows' },
   { label: 'Files', icon: Boxes, soon: true },
 ];
