@@ -50,10 +50,11 @@ function selectTarget(modelId?: string): ResolvedTarget {
     );
   }
 
+  const hasReasoning = pool.some((model) => model.capabilities.includes('reasoning'));
   const decision = chooseModel(pool, {
-    taskType: 'reasoning',
+    taskType: hasReasoning ? 'reasoning' : 'general',
     requiredCapabilities: ['text'],
-    preference: 'auto',
+    preference: hasReasoning ? 'reasoning' : 'auto',
   });
 
   return {
