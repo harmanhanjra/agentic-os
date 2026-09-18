@@ -1,6 +1,6 @@
-# ScaleOS AI
+# ScaleOS AI · V0.2
 
-> One workspace. Every AI model.
+> One workspace. Every AI model. Now with a bounded agent runtime.
 
 ScaleOS AI is a provider-agnostic AI operating workspace: connect hosted or
 local models, chat with history and rich rendering, compare models side by
@@ -17,6 +17,7 @@ output — unconfigured routers report honest errors with request IDs.
   copy, tables, quotes), copy / regenerate / retry per message, model +
   latency + request-ID footers, and a model switcher with live
   Ready / Needs-key state.
+- **Agents V0.2** — bounded planner → executor → synthesizer runs with 1–5 steps, explicit no-tool mode, request IDs, and rate limits. External/destructive tools are intentionally disabled until permissioned tool execution lands.
 - **Model Arena** — run one prompt across 2–4 models concurrently with
   per-model latency, provider tags, and honest per-model failure states.
 - **Providers control plane** (`/settings`) — add keys without restarts,
@@ -34,9 +35,8 @@ output — unconfigured routers report honest errors with request IDs.
   per-skill chat opt-out, and enabled skills offered as chat context.
 - **Media jobs** — Higgsfield image generation with async job status
   polling (`/api/images/*`).
-- **Security boundaries** — Zod validation at every edge, encrypted
-  credentials, masked secrets, SSRF-checked provider URLs, request IDs on
-  all API responses, model output treated as untrusted.
+- **Security boundaries** — Zod validation at every edge, encrypted credentials, masked secrets, DNS-aware SSRF and redirect protection, hosted provider-admin protection, request throttling, security headers, request IDs, and escaped model markdown.
+- **CI quality gates** — every V0.2 push runs typecheck, Vitest, and a production Next.js build in GitHub Actions.
 
 ## Quickstart
 
@@ -72,12 +72,13 @@ or anything under `data/`.
 
 ## Routes & APIs
 
-Pages: `/` (workspace home) · `/chat` · `/arena` · `/image` · `/skills` ·
+Pages: `/` (workspace home) · `/chat` · `/agents` · `/arena` · `/image` · `/skills` ·
 `/flows` · `/models` · `/settings`.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/chat` | POST | Streaming chat completions (OpenAI-compatible dispatch) |
+| `/api/agents/run` | POST | Bounded planner/executor/synthesizer agent run |
 | `/api/arena` | POST | Concurrent 2–4 model comparison |
 | `/api/status` | GET | Live routers + registry models, no secrets |
 | `/api/skills` | GET | Host skill inventory (ids, names, descriptions) |
@@ -113,16 +114,11 @@ docs/           # architecture + provider adapter notes
 
 ## Security model
 
-Inputs are validated at boundaries with Zod; credentials are encrypted at
-rest and masked in every UI response; provider URL targets are checked
-against SSRF; plaintext secrets never reach the client; model output is
-rendered as escaped markdown. Production routes must enforce authentication
-and workspace ownership before database access.
+Inputs are validated at boundaries with Zod; credentials are encrypted at rest and masked in every UI response; provider URL targets are checked before dispatch and after DNS resolution; redirects are blocked at provider boundaries; plaintext secrets never reach the client; and model output is escaped before controlled markdown tags are injected. In hosted production, provider credential mutations require `SCALEOS_ADMIN_TOKEN` until workspace authentication replaces this temporary admin boundary.
 
 ## Known limitations & roadmap
 
-Auth, PostgreSQL repositories, usage charts, attachments/storage, and agent
-execution are upcoming vertical slices. Kimi K3 and other heavyweight
+Workspace auth, PostgreSQL repositories, durable agent memory, permissioned tool execution, usage charts, and attachments/storage are upcoming vertical slices. Kimi K3 and other heavyweight
 reasoning models currently exceed the 120s upstream budget on trial-tier
 keys — tracked as a follow-up (longer budgets / reasoning params / paid
 tier). The UI exposes no fake success state; unavailable integrations
