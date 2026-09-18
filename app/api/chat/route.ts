@@ -11,6 +11,7 @@ import { developmentModels } from '@/lib/ai/registry';
 import { chooseModel, classifyTask } from '@/lib/ai/routing';
 import { ScaleOSError } from '@/lib/ai/types';
 import { buildSkillContext } from '@/lib/skills/context';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -56,6 +57,13 @@ function withSkillContext(
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
+  const rate = checkRateLimit(request, 'chat', 30, 60_000);
+  if (!rate.allowed) {
+    return Response.json(
+      { error: { code: 'RATE_LIMITED', message: 'Too many chat requests. Try again shortly.' }, requestId },
+      { status: 429, headers: { 'x-request-id': requestId, ...rateLimitHeaders(rate) } },
+    );
+  }
   const parsed = RequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return error('VALIDATION_ERROR', 'Invalid chat request', 422, requestId);
