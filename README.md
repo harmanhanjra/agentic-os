@@ -11,6 +11,7 @@ ScaleOS AI is a provider-agnostic AI operating workspace for connecting hosted o
 - Capability-aware model registry and deterministic Auto/fast/reasoning/coding/budget/local routing contracts
 - AES-256-GCM credential encryption and masked secrets
 - Hosted-mode custom URL validation to reduce SSRF risk
+- Server-only `/api/chat` streaming boundary for configured OpenAI-compatible providers
 - Test coverage for routing, capability selection, encryption, and URL safety
 - Architecture and provider extension documentation
 
