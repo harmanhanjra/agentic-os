@@ -18,13 +18,15 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function renderInline(text: string): string {
+export function renderInlineMarkdown(text: string): string {
   // Extract `code` spans first so markers inside them stay literal.
   const codes: string[] = [];
   let out = text.replace(/`([^`\n]+)`/g, (_, code: string) => {
     codes.push(`<code class="rounded border border-line bg-raised px-1.5 py-0.5 font-mono text-[12px]">${escapeHtml(code)}</code>`);
     return `\u0000${codes.length - 1}\u0000`;
   });
+  // Escape all model-provided HTML before adding our own controlled tags.
+  out = escapeHtml(out);
   out = out
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1<em>$2</em>')
@@ -51,7 +53,7 @@ function parseBlocks(source: string): Block[] {
 
   const flushParagraph = () => {
     if (paragraph.length > 0) {
-      blocks.push({ html: `<p>${renderInline(paragraph.join(' '))}</p>` });
+      blocks.push({ html: `<p>${renderInlineMarkdown(paragraph.join(' '))}</p>` });
       paragraph = [];
     }
   };
@@ -62,7 +64,7 @@ function parseBlocks(source: string): Block[] {
         ? 'list-decimal space-y-1 pl-5'
         : 'list-disc space-y-1 pl-5';
       blocks.push({
-        html: `<${tag} class="${cls}">${list.items.map((it) => `<li>${renderInline(it)}</li>`).join('')}</${tag}>`,
+        html: `<${tag} class="${cls}">${list.items.map((it) => `<li>${renderInlineMarkdown(it)}</li>`).join('')}</${tag}>`,
       });
       list = null;
     }
@@ -95,7 +97,7 @@ function parseBlocks(source: string): Block[] {
       const size =
         level === 1 ? 'text-lg' : level === 2 ? 'text-base' : 'text-sm';
       blocks.push({
-        html: `<h${level} class="${size} mt-4 font-semibold tracking-tight first:mt-0">${renderInline(heading[2])}</h${level}>`,
+        html: `<h${level} class="${size} mt-4 font-semibold tracking-tight first:mt-0">${renderInlineMarkdown(heading[2])}</h${level}>`,
       });
       i += 1;
       continue;
@@ -106,7 +108,7 @@ function parseBlocks(source: string): Block[] {
       flushParagraph();
       flushList();
       blocks.push({
-        html: `<blockquote class="border-l-2 border-line-strong pl-3 text-muted">${renderInline(quote[1])}</blockquote>`,
+        html: `<blockquote class="border-l-2 border-line-strong pl-3 text-muted">${renderInlineMarkdown(quote[1])}</blockquote>`,
       });
       i += 1;
       continue;
@@ -148,13 +150,13 @@ function parseBlocks(source: string): Block[] {
           .trim()
           .replace(/^\||\|$/g, '')
           .split('|')
-          .map((c) => `<td class="border border-line px-2.5 py-1.5">${renderInline(c.trim())}</td>`)
+          .map((c) => `<td class="border border-line px-2.5 py-1.5">${renderInlineMarkdown(c.trim())}</td>`)
           .join('');
       const headerCells = line
         .trim()
         .replace(/^\||\|$/g, '')
         .split('|')
-        .map((c) => `<th class="border border-line bg-raised px-2.5 py-1.5 text-left font-medium">${renderInline(c.trim())}</th>`)
+        .map((c) => `<th class="border border-line bg-raised px-2.5 py-1.5 text-left font-medium">${renderInlineMarkdown(c.trim())}</th>`)
         .join('');
       const rows: string[] = [`<tr>${headerCells}</tr>`];
       i += 2;
