@@ -7,11 +7,11 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { label: 'Chat', icon: MessageSquare, active: true },
-  { label: 'Arena', icon: LayoutGrid },
-  { label: 'Image Studio', icon: ImageIcon },
+  { label: 'Chat', icon: MessageSquare, active: true, href: '/chat' },
+  { label: 'Arena', icon: LayoutGrid, href: '/arena' },
+  { label: 'Image Studio', icon: ImageIcon, href: '/image' },
   { label: 'Agents', icon: Bot, soon: true },
-  { label: 'Flows', icon: Workflow, soon: true },
+  { label: 'Flows', icon: Workflow, soon: true, href: '/flows' },
   { label: 'Files', icon: Boxes },
 ];
 
@@ -49,10 +49,8 @@ export default function Home() {
           </div>
           <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#626760]">Workspace</div>
           <nav className="space-y-1" aria-label="Primary navigation">
-            {navItems.map(({ label, icon: Icon, active, soon }) => (
-              <button key={label} className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] transition ${active ? 'bg-[#1c211b] text-[#d6f36b]' : 'text-[#92958f] hover:bg-[#171a17] hover:text-[#f5f5f0]'}`}>
-                <Icon size={16} strokeWidth={1.8} /><span className="flex-1">{label}</span>{soon && <span className="text-[9px] uppercase tracking-wider text-[#626760]">Soon</span>}
-              </button>
+            {navItems.map(({ label, icon: Icon, active, soon, href }) => (
+              href ? <a href={href} key={label} className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] transition ${active ? 'bg-[#1c211b] text-[#d6f36b]' : 'text-[#92958f] hover:bg-[#171a17] hover:text-[#f5f5f0]'}`}><Icon size={16} strokeWidth={1.8} /><span className="flex-1">{label}</span>{soon && <span className="text-[9px] uppercase tracking-wider text-[#626760]">Soon</span>}</a> : <button key={label} className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] text-[#92958f] transition hover:bg-[#171a17] hover:text-[#f5f5f0]"><Icon size={16} strokeWidth={1.8} /><span className="flex-1">{label}</span>{soon && <span className="text-[9px] uppercase tracking-wider text-[#626760]">Soon</span>}</button>
             ))}
           </nav>
           <div className="mt-7 mb-3 px-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#626760]">Control plane</div>
