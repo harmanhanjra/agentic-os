@@ -1,15 +1,93 @@
+import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { developmentModels } from '@/lib/ai/registry';
+import { postChatCompletions, resolveTarget } from '@/lib/ai/dispatch';
+import type { ResolvedTarget } from '@/lib/ai/dispatch';
 
-const RequestSchema = z.object({ prompt: z.string().min(1).max(20_000), modelIds: z.array(z.string()).min(2).max(4) });
+export const runtime = 'nodejs';
+
+const RequestSchema = z.object({
+  prompt: z.string().min(1).max(20_000),
+  modelIds: z.array(z.string().min(1).max(300)).min(2).max(4),
+});
+
 export async function POST(request: NextRequest) {
+  const requestId = randomUUID();
   const parsed = RequestSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: { code: 'VALIDATION_ERROR', message: 'Prompt and two to four models are required.' } }, { status: 422 });
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) return Response.json({ error: { code: 'PROVIDER_NOT_CONFIGURED', message: 'Connect a provider before starting an arena.' } }, { status: 503 });
-  const models = parsed.data.modelIds.map((id) => developmentModels.find((model) => model.id === id)).filter((model): model is (typeof developmentModels)[number] => Boolean(model));
+  if (!parsed.success)
+    return Response.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Prompt and two to four models are required.',
+        },
+        requestId,
+      },
+      { status: 422, headers: { 'x-request-id': requestId } },
+    );
+
+  const targets = parsed.data.modelIds.map((id) => ({
+    id,
+    target: resolveTarget(id),
+  }));
+  if (targets.some((t) => !t.target))
+    return Response.json(
+      {
+        error: {
+          code: 'MODEL_NOT_FOUND',
+            message:
+            'One of the selected models is unknown. Pick registry models or address routers as <provider>:<model-id>.',
+        },
+        requestId,
+      },
+      { status: 404, headers: { 'x-request-id': requestId } },
+    );
+
   const started = Date.now();
-  const results = await Promise.allSettled(models.map(async (model) => { const begin = Date.now(); const response = await fetch(process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ model: model.externalModelId, messages: [{ role: 'user', content: parsed.data.prompt }], stream: false }), signal: AbortSignal.timeout(120_000) }); if (!response.ok) throw new Error('PROVIDER_ERROR'); const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> }; return { modelId: model.id, providerId: model.providerId, content: body.choices?.[0]?.message?.content ?? '', latencyMs: Date.now() - begin }; }));
-  return Response.json({ data: results.map((result) => result.status === 'fulfilled' ? result.value : { error: 'MODEL_UNAVAILABLE' }), latencyMs: Date.now() - started });
+  const ready = targets as Array<{
+    id: string;
+    target: ResolvedTarget;
+  }>;
+  const results = await Promise.allSettled(
+    ready.map(async ({ id, target }) => {
+      const begin = Date.now();
+      const response = await postChatCompletions(
+        target,
+        [{ role: 'user', content: parsed.data.prompt }],
+        false,
+      );
+      if (!response.ok) {
+        const code =
+          response.status === 404 ? 'MODEL_NOT_FOUND' : 'PROVIDER_ERROR';
+        throw new Error(code);
+      }
+      const body = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      return {
+        modelId: id,
+        providerId: target.providerId,
+        content: body.choices?.[0]?.message?.content ?? '',
+        latencyMs: Date.now() - begin,
+      };
+    }),
+  );
+
+  return Response.json(
+    {
+      data: results.map((result) =>
+        result.status === 'fulfilled'
+          ? result.value
+          : {
+              error:
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : 'MODEL_UNAVAILABLE',
+            },
+      ),
+      latencyMs: Date.now() - started,
+      requestId,
+    },
+    { headers: { 'x-request-id': requestId } },
+  );
 }

@@ -7,7 +7,10 @@ ScaleOS AI is a provider-agnostic AI operating workspace for connecting hosted o
 ## Current slice
 
 - Responsive dark-first workspace shell with command palette (`Ctrl/Cmd + K`)
-- Chat, Arena, Image Studio, Flows, Models, and Settings routes with intentional empty states
+- Chat, Arena, Image Studio, Skills, Flows, Models, and Settings routes with intentional empty states
+- Multi-provider routing: OpenAI, NVIDIA NIM open models, Anthropic, local Ollama, and any LiteLLM-gateway router (`litellm:<model-id>`)
+- Auto-routing prefers routers that are actually configured; every model shows Ready / Needs-key state with capability badges
+- Local skill auto-detection (`/api/skills` + Skills page) with per-skill chat opt-out; detected skills are offered as chat context
 - Capability-aware model registry and deterministic Auto/fast/reasoning/coding/budget/local routing contracts
 - AES-256-GCM credential encryption and masked secrets
 - Hosted-mode custom URL validation to reduce SSRF risk
@@ -20,15 +23,15 @@ Provider connections are intentionally not fabricated: configure a real server-s
 ## Requirements
 
 - Node.js 20+
-- npm 10+ (pnpm is the intended package manager when available)
+- pnpm 10+ (npm works as a fallback)
 - PostgreSQL for the persistence implementation
 
 ## Installation
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env.local
-npm run dev
+pnpm dev
 ```
 
 Open `http://localhost:3000`.
@@ -37,13 +40,19 @@ Open `http://localhost:3000`.
 
 See `.env.example`. `CREDENTIAL_ENCRYPTION_KEY` is required before persisting provider credentials. Provider keys must remain server-side. Never commit `.env.local`.
 
+Routers are configured with server-side keys: `OPENAI_API_KEY`, `NVIDIA_API_KEY` (NVIDIA NIM open models), `ANTHROPIC_API_KEY`, local Ollama via `OLLAMA_BASE_URL` (no key), and any other router through a LiteLLM gateway (`LITELLM_BASE_URL` + `LITELLM_MASTER_KEY`, addressed as `litellm:<model-id>`).
+
+Keys can be added without restarts on the **Settings → Providers** page: they are AES-256-GCM encrypted with `CREDENTIAL_ENCRYPTION_KEY` into a gitignored local store (`data/providers.json`, override with `SCALEOS_DATA_DIR`) and take precedence over environment variables. The UI only ever shows masked shapes, and **Test connection** hits each provider's free model listing.
+
+Skills are auto-detected from `~/.agents/skills`, `~/.claude/skills`, and `~/.config/opencode/skills` (plus `SCALEOS_SKILLS_DIRS`). Detection is local reads only.
+
 ## Quality gates
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
-npm run build
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
 ## Architecture

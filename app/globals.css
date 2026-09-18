@@ -1,11 +1,155 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root { color-scheme: dark; --ink: #f5f5f0; --muted: #92958f; --canvas: #0b0c0b; --panel: #111311; --line: #252925; --accent: #d6f36b; }
-* { box-sizing: border-box; }
-html, body { min-height: 100%; }
-body { margin: 0; background: var(--canvas); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
-button, input, textarea, select { font: inherit; }
-button { cursor: pointer; }
-::selection { background: rgba(214,243,107,.25); }
+@theme {
+  --color-canvas: #0b0c0b;
+  --color-panel: #111311;
+  --color-raised: #171a17;
+  --color-overlay: #1c211b;
+  --color-line: #252925;
+  --color-line-strong: #3a4039;
+  --color-focus: #667050;
+  --color-ink: #f5f5f0;
+  --color-muted: #92958f;
+  --color-faint: #626760;
+  --color-accent: #d6f36b;
+  --color-accent-hover: #e0fa82;
+  --color-accent-ink: #161815;
+  --color-track: #292d29;
+  --color-danger: #f08a7b;
+  --color-danger-ink: #2a1210;
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+    monospace;
+
+  --animate-fade-in: fade-in 0.18s ease-out both;
+  --animate-rise-in: rise-in 0.24s ease-out both;
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+}
+
+/* Light theme: same semantic tokens, light values. Toggled via
+   document.documentElement.dataset.theme = "light" | "dark". */
+[data-theme="light"] {
+  --color-canvas: #f5f5f0;
+  --color-panel: #ffffff;
+  --color-raised: #eef0ea;
+  --color-overlay: #e6e9e0;
+  --color-line: #dde0d6;
+  --color-line-strong: #c4c9b8;
+  --color-focus: #7d8a68;
+  --color-ink: #161815;
+  --color-muted: #5c615a;
+  --color-faint: #8a8f86;
+  --color-accent: #4c6b1f;
+  --color-accent-hover: #3d5718;
+  --color-accent-ink: #f5f5f0;
+  --color-track: #e2e5da;
+  --color-danger: #b3261e;
+  --color-danger-ink: #fdecea;
+  color-scheme: light;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* Visible keyboard focus everywhere (WCAG 2.4.7) */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Slim, theme-aware scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

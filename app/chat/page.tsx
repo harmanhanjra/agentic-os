@@ -1,2 +1,31 @@
-import { WorkspacePage } from '@/components/workspace-page';
-export default function ChatPage() { return <WorkspacePage kind="chat" title="AI Chat" eyebrow="Conversation workspace" description="Stream thoughtful responses through the model and provider you choose. Conversation persistence and attachments plug into this boundary." action="New conversation"/>; }
+import { Suspense } from 'react';
+import { AppShell } from '@/components/app-shell';
+import { ChatClient } from '@/components/chat-client';
+
+function ChatSkeleton() {
+  return (
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-5 py-8"
+      aria-busy="true"
+      aria-label="Loading conversation"
+    >
+      {[70, 45, 85].map((w) => (
+        <div
+          key={w}
+          style={{ width: `${w}%` }}
+          className="h-14 animate-pulse-soft rounded-2xl bg-raised"
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <AppShell>
+      <Suspense fallback={<ChatSkeleton />}>
+        <ChatClient />
+      </Suspense>
+    </AppShell>
+  );
+}

@@ -38,5 +38,5 @@ export const RoutingRequestSchema = z.object({
 export type RoutingRequest = z.infer<typeof RoutingRequestSchema>;
 export interface RoutingDecision { model: AIModel; reasonCodes: string[]; fallbackModels: AIModel[]; }
 
-export type ScaleOSErrorCode = 'INVALID_API_KEY' | 'RATE_LIMITED' | 'MODEL_NOT_FOUND' | 'MODEL_UNAVAILABLE' | 'CONTEXT_TOO_LARGE' | 'UNSUPPORTED_CAPABILITY' | 'NETWORK_ERROR' | 'TIMEOUT' | 'PROVIDER_ERROR' | 'UNKNOWN_ERROR';
-export class ScaleOSError extends Error { constructor(public readonly code: ScaleOSErrorCode, message = code, public readonly requestId?: string) { super(message); this.name = 'ScaleOSError'; } }
+export type ScaleOSErrorCode = 'INVALID_API_KEY' | 'RATE_LIMITED' | 'MODEL_NOT_FOUND' | 'MODEL_UNAVAILABLE' | 'CONTEXT_TOO_LARGE' | 'UNSUPPORTED_CAPABILITY' | 'NETWORK_ERROR' | 'TIMEOUT' | 'PROVIDER_ERROR' | 'PROVIDER_NOT_CONFIGURED' | 'VALIDATION_ERROR' | 'CREDENTIAL_STORE_UNAVAILABLE' | 'UNKNOWN_ERROR';
+export class ScaleOSError extends Error { constructor(public readonly code: ScaleOSErrorCode, message: string = code, public readonly requestId?: string) { super(message); this.name = 'ScaleOSError'; } }
