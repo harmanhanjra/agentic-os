@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getProvider } from '@/lib/ai/providers';
 import { effectiveAuth } from '@/lib/security/store';
 import { providerResponseError } from '@/lib/ai/dispatch';
+import { safeProviderFetch } from '@/lib/security/fetch';
 
 export const runtime = 'nodejs';
 
@@ -46,10 +47,20 @@ export async function POST(request: NextRequest) {
         ? `${auth.baseURL}/health`
         : `${auth.baseURL}/models`;
   try {
-    const res = await fetch(probe, {
-      headers: auth.apiKey ? { authorization: `Bearer ${auth.apiKey}` } : {},
-      signal: AbortSignal.timeout(10_000),
-    });
+    const authorization =
+      auth.apiKey
+        ? def.id === 'higgsfield'
+          ? 'Key ' + auth.apiKey
+          : 'Bearer ' + auth.apiKey
+        : null;
+    const res = await safeProviderFetch(
+      probe,
+      {
+        headers: authorization ? { authorization } : {},
+        signal: AbortSignal.timeout(10_000),
+      },
+      def.local,
+    );
     if (!res.ok) {
       const detail = await providerResponseError(res);
       return Response.json(
