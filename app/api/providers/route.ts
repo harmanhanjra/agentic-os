@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { requireProviderAdmin } from '@/lib/security/admin';
 import { developmentModels } from '@/lib/ai/registry';
 import { getProvider, isProviderConfigured, providers } from '@/lib/ai/providers';
 import { ScaleOSError } from '@/lib/ai/types';
@@ -75,6 +76,8 @@ export async function GET() {
 /** Save (or replace) a provider credential into the encrypted local store. */
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
+  const denied = requireProviderAdmin(request);
+  if (denied) return denied;
   const parsed = SaveSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return Response.json(
@@ -106,6 +109,8 @@ export async function POST(request: NextRequest) {
 /** Remove the locally stored credential (env config is untouched). */
 export async function DELETE(request: NextRequest) {
   const requestId = randomUUID();
+  const denied = requireProviderAdmin(request);
+  if (denied) return denied;
   const providerId = new URL(request.url).searchParams.get('providerId') ?? '';
   if (!getProvider(providerId)) {
     return Response.json(
