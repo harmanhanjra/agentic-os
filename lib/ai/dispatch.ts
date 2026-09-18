@@ -1,4 +1,5 @@
 import { assertSafeProviderUrl } from '../security/url';
+import { safeProviderFetch } from '../security/fetch';
 import { getProvider, getProviderAuth } from './providers';
 import { developmentModels } from './registry';
 import { ScaleOSError } from './types';
@@ -76,6 +77,7 @@ export function configuredModels() {
 function endpointFor(providerId: string): {
   url: string;
   apiKey: string | null;
+  allowLocal: boolean;
 } {
   const def = getProvider(providerId);
   if (!def) throw new ScaleOSError('MODEL_NOT_FOUND', `Unknown provider "${providerId}"`);
@@ -93,7 +95,7 @@ function endpointFor(providerId: string): {
   // Local routers (Ollama) are allowed to stay on loopback; hosted
   // deployments still block private targets for remote providers.
   assertSafeProviderUrl(url, def.local ? true : process.env.NODE_ENV !== 'production');
-  return { url, apiKey: auth.apiKey };
+  return { url, apiKey: auth.apiKey, allowLocal: def.local };
 }
 
 /**
@@ -105,21 +107,27 @@ export async function postChatCompletions(
   messages: ChatMessage[],
   stream: boolean,
 ): Promise<Response> {
-  const { url, apiKey } = endpointFor(target.providerId);
+  const { url, apiKey, allowLocal } = endpointFor(target.providerId);
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (apiKey) headers.authorization = `Bearer ${apiKey}`;
-  const upstream = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model: target.externalModelId,
-      messages,
-      stream,
-    }),
-    signal: AbortSignal.timeout(120_000),
-  }).catch(() => null);
-  if (!upstream) throw new ScaleOSError('NETWORK_ERROR', 'Could not reach the provider.');
-  return upstream;
+  try {
+    return await safeProviderFetch(
+      url,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: target.externalModelId,
+          messages,
+          stream,
+        }),
+        signal: AbortSignal.timeout(120_000),
+      },
+      allowLocal,
+    );
+  } catch {
+    throw new ScaleOSError('NETWORK_ERROR', 'Could not safely reach the provider.');
+  }
 }
 
 export async function submitHiggsfieldImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
@@ -128,13 +136,21 @@ export async function submitHiggsfieldImage(request: ImageGenerationRequest): Pr
   const { auth } = effectiveAuth(def);
   if (!auth?.apiKey) throw new ScaleOSError('MODEL_UNAVAILABLE', 'Higgsfield is not configured. Set HF_KEY or add it in Settings.');
   assertSafeProviderUrl(auth.baseURL, process.env.NODE_ENV !== 'production');
-  const response = await fetch(`${auth.baseURL}/${request.modelId}`, {
-    method: 'POST',
-    headers: { authorization: `Key ${auth.apiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt: request.prompt, ...(request.aspectRatio ? { aspect_ratio: request.aspectRatio } : {}), ...(request.resolution ? { resolution: request.resolution } : {}) }),
-    signal: AbortSignal.timeout(30_000),
-  }).catch(() => null);
-  if (!response) throw new ScaleOSError('NETWORK_ERROR', 'Could not reach Higgsfield.');
+  let response: Response;
+  try {
+    response = await safeProviderFetch(
+      auth.baseURL + '/' + request.modelId,
+      {
+        method: 'POST',
+        headers: { authorization: 'Key ' + auth.apiKey, 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: request.prompt, ...(request.aspectRatio ? { aspect_ratio: request.aspectRatio } : {}), ...(request.resolution ? { resolution: request.resolution } : {}) }),
+        signal: AbortSignal.timeout(30_000),
+      },
+      false,
+    );
+  } catch {
+    throw new ScaleOSError('NETWORK_ERROR', 'Could not safely reach Higgsfield.');
+  }
   if (!response.ok) { const detail = await providerResponseError(response); throw new ScaleOSError(detail.code as never, detail.message); }
   const body = await response.json() as { request_id?: string; status_url?: string };
   if (!body.request_id || !body.status_url) throw new ScaleOSError('PROVIDER_ERROR', 'Higgsfield returned an unexpected job response.');

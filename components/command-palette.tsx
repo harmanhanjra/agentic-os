@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  Bot,
   Boxes,
   Command,
   Image as ImageIcon,
@@ -22,6 +23,7 @@ interface CommandItem {
 
 const COMMANDS: CommandItem[] = [
   { label: 'New conversation', hint: 'Chat', href: '/chat', icon: MessageSquare },
+  { label: 'Open Agents', hint: 'Plan & execute', href: '/agents', icon: Bot },
   { label: 'Open Model Arena', hint: 'Compare', href: '/arena', icon: LayoutGrid },
   { label: 'Open Image Studio', hint: 'Generate', href: '/image', icon: ImageIcon },
   { label: 'Open Skills', hint: 'Detected', href: '/skills', icon: Puzzle },

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { postChatCompletions, resolveTarget } from '@/lib/ai/dispatch';
 import type { ResolvedTarget } from '@/lib/ai/dispatch';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +14,13 @@ const RequestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
+  const rate = checkRateLimit(request, 'arena', 10, 60_000);
+  if (!rate.allowed) {
+    return Response.json(
+      { error: { code: 'RATE_LIMITED', message: 'Too many arena requests. Try again shortly.' }, requestId },
+      { status: 429, headers: { 'x-request-id': requestId, ...rateLimitHeaders(rate) } },
+    );
+  }
   const parsed = RequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return Response.json(
