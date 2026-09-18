@@ -59,12 +59,17 @@ function readStore(): z.infer<typeof StoreFileSchema> {
   } catch {
     return { version: 1, providers: [] };
   }
-  const parsed = StoreFileSchema.safeParse(JSON.parse(raw));
-  if (!parsed.success) {
-    console.error('[providers] stored credential file is invalid; ignoring it');
+  try {
+    const parsed = StoreFileSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      console.error('[providers] stored credential file is invalid; ignoring it');
+      return { version: 1, providers: [] };
+    }
+    return parsed.data;
+  } catch {
+    console.error('[providers] stored credential file contains invalid JSON; ignoring it');
     return { version: 1, providers: [] };
   }
-  return parsed.data;
 }
 
 function writeStore(store: z.infer<typeof StoreFileSchema>): void {
@@ -125,6 +130,7 @@ export function isEffectivelyConfigured(def: ProviderDef): boolean {
 }
 
 export function listPublicCredentials(): PublicCredential[] {
+  const store = readStore();
   return providers.map((def) => {
     const { auth, source } = effectiveAuth(def);
     let masked: string | null = null;
@@ -135,8 +141,7 @@ export function listPublicCredentials(): PublicCredential[] {
       masked,
       baseURL: auth?.baseURL ?? null,
       updatedAt:
-        readStore().providers.find((p) => p.providerId === def.id)?.updatedAt ??
-        null,
+        store.providers.find((p) => p.providerId === def.id)?.updatedAt ?? null,
     };
   });
 }
