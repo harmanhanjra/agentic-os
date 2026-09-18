@@ -89,18 +89,23 @@ export const developmentModels: AIModel[] = [
   openai('gpt-4o-mini', 'gpt-4o-mini', 'GPT-4o Mini', ['text', 'tools', 'json'], 128_000),
   openai('o4-mini', 'o4-mini', 'o4-mini', ['text', 'reasoning'], 200_000),
 
-  // ---- NVIDIA NIM (open models, OpenAI-compatible) ----
-  nvidia('llama-3.2-90b-vision', 'meta/llama-3.2-90b-vision-instruct', 'Llama 3.2 90B Vision', ['text', 'vision']),
-  nvidia('nemotron-70b', 'nvidia/llama-3.1-nemotron-70b-instruct', 'Nemotron 70B', ['text', 'reasoning', 'tools']),
-  nvidia('deepseek-coder', 'deepseek-ai/deepseek-coder-6.7b-instruct', 'DeepSeek Coder', ['text', 'tools'], 16_384),
-  nvidia('deepseek-v4-flash', 'deepseek-ai/deepseek-v4-flash-0731', 'DeepSeek V4 Flash', ['text', 'reasoning', 'tools'], 163_840),
-  nvidia('mistral-large', 'mistralai/mistral-large', 'Mistral Large', ['text', 'tools', 'json']),
-  nvidia('mixtral-8x22b', 'mistralai/mixtral-8x22b-v0.1', 'Mixtral 8x22B', ['text', 'tools'], 65_536),
-  nvidia('gemma-3-27b', 'google/gemma-3-27b-it', 'Gemma 3 27B', ['text'], 128_000),
-  nvidia('phi-3-medium', 'microsoft/phi-3-medium-128k-instruct', 'Phi-3 Medium', ['text']),
-  nvidia('nemotron-4-340b', 'nvidia/nemotron-4-340b-instruct', 'Nemotron-4 340B', ['text', 'tools'], 4_096),
-  nvidia('kimi-k3', 'moonshotai/kimi-k3', 'Kimi K3', ['text', 'vision', 'reasoning']),
-  nvidia('kimi-k2.6', 'moonshotai/kimi-k2.6', 'Kimi K2.6', ['text', 'tools', 'json']),
+  // ---- NVIDIA NIM: verified working on 2026-09-18 via live chat probes ----
+  // Each entry below returned a real completion through /api/chat.
+  // Retired/unentitled ids (upstream 404), specialists (guards, translators,
+  // embed, parse), and ids timing out past 120s (incl. kimi-k3) are out.
+  // Anything else stays addressable ad-hoc as nvidia:<model-id>.
+  nvidia('deepseek-v4-flash', 'deepseek-ai/deepseek-v4-flash-0731', 'DeepSeek V4 Flash', ['text'], 163_840),
+  nvidia('llama-3.2-11b-vision', 'meta/llama-3.2-11b-vision-instruct', 'Llama 3.2 11B Vision', ['text', 'vision']),
+  nvidia('nemotron-3-super', 'nvidia/nemotron-3-super-120b-a12b', 'Nemotron 3 Super 120B', ['text']),
+  nvidia('nemotron-3-ultra', 'nvidia/nemotron-3-ultra-550b-a55b', 'Nemotron 3 Ultra 550B', ['text']),
+  nvidia('nemotron-3.5-lightning', 'nvidia/nemotron-3.5-lightning-30b-a3b', 'Nemotron 3.5 Lightning', ['text']),
+  nvidia('gpt-oss-20b', 'openai/gpt-oss-20b', 'GPT-OSS 20B', ['text']),
+  nvidia('glm-5.3-flash', 'z-ai/glm-5.3-flash', 'GLM 5.3 Flash', ['text']),
+  nvidia('gemma-4-31b', 'google/gemma-4-31b-it', 'Gemma 4 31B', ['text']),
+  nvidia('mistral-nemotron', 'mistralai/mistral-nemotron', 'Mistral Nemotron', ['text']),
+  nvidia('diffusiongemma-26b', 'google/diffusiongemma-26b-a4b-it', 'DiffusionGemma 26B', ['text']),
+  nvidia('laguna-xs', 'poolside/laguna-xs-2.1', 'Laguna XS 2.1', ['text']),
+  nvidia('ising-calibration', 'nvidia/ising-calibration-1.5-31b', 'Ising Calibration 31B', ['text']),
 
   // ---- Higgsfield media applications (official API) ----
   higgsfieldImage('seedream-v4', 'bytedance/seedream/v4/text-to-image', 'Seedream v4'),
