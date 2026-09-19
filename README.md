@@ -38,7 +38,7 @@ output — unconfigured routers report honest errors with request IDs.
 - **Media jobs** — Higgsfield image generation with async job status
   polling (`/api/images/*`).
 - **Security boundaries** — Zod validation at every edge, encrypted credentials, masked secrets, DNS-aware SSRF and redirect protection, hosted provider-admin protection, request throttling, security headers, request IDs, and escaped model markdown.
-- **CI quality gates** — every V0.2 push runs typecheck, Vitest, and a production Next.js build in GitHub Actions.
+- **CI quality gates** — master and pull requests run typecheck, Vitest, a real Chrome Browser Use end-to-end test, and a production Next.js build in GitHub Actions.
 
 ## Quickstart
 
@@ -105,6 +105,7 @@ Every API response carries `requestId` (body + `x-request-id` header).
 pnpm lint        # tsc --noEmit
 pnpm typecheck   # tsc --noEmit
 pnpm test        # vitest (routing, registry, dispatch, crypto, skills, storage)
+npm run test:e2e:browser  # real Chrome/CDP Browser Use end-to-end test
 pnpm build       # production build
 ```
 
