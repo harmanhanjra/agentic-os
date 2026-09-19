@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   MessageSquare,
+  Monitor,
   Puzzle,
   Settings2,
   Workflow,
@@ -24,6 +25,7 @@ interface CommandItem {
 const COMMANDS: CommandItem[] = [
   { label: 'New conversation', hint: 'Chat', href: '/chat', icon: MessageSquare },
   { label: 'Open Agents', hint: 'Plan & execute', href: '/agents', icon: Bot },
+  { label: 'Open Computer Use', hint: 'Browser & desktop', href: '/computer', icon: Monitor },
   { label: 'Open Model Arena', hint: 'Compare', href: '/arena', icon: LayoutGrid },
   { label: 'Open Image Studio', hint: 'Generate', href: '/image', icon: ImageIcon },
   { label: 'Open Skills', hint: 'Detected', href: '/skills', icon: Puzzle },
