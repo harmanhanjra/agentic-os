@@ -17,6 +17,8 @@ export async function GET() {
       : Promise.resolve({ reachable: false as const }),
   ]);
 
+  const computerHealth = 'health' in computerProbe ? computerProbe.health : undefined;
+
   return Response.json(
     {
       data: {
@@ -28,10 +30,10 @@ export async function GET() {
         computer: {
           configured: computerWorkerConfigured(),
           reachable: computerProbe.reachable,
-          healthy: computerProbe.health?.status === 'healthy',
-          mode: computerProbe.health?.mode ?? 'vision-desktop-worker',
-          platform: computerProbe.health?.platform ?? null,
-          capabilities: computerProbe.health?.capabilities ?? [],
+          healthy: computerHealth?.status === 'healthy',
+          mode: computerHealth?.mode ?? 'vision-desktop-worker',
+          platform: computerHealth?.platform ?? null,
+          capabilities: computerHealth?.capabilities ?? [],
         },
         policy: {
           financial: false,
