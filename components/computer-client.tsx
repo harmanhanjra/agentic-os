@@ -15,7 +15,7 @@ import {
 
 interface StatusPayload {
   browser: { configured: boolean; reachable: boolean; mode: string };
-  computer: { configured: boolean; mode: string };
+  computer: {\n    configured: boolean;\n    reachable: boolean;\n    healthy: boolean;\n    mode: string;\n    platform: string | null;\n    capabilities: string[];\n  };
   policy: Record<string, boolean>;
 }
 
@@ -197,8 +197,14 @@ export function ComputerClient() {
           }
         />
         <ReadyBadge
-          ready={Boolean(status?.computer.configured)}
-          label={status?.computer.configured ? 'Desktop worker configured' : 'Desktop worker not configured'}
+          ready={Boolean(status?.computer.reachable && status?.computer.healthy)}
+          label={
+            status?.computer.reachable && status?.computer.healthy
+              ? `Desktop ready · ${status.computer.platform ?? status.computer.mode}`
+              : status?.computer.configured
+                ? 'Desktop configured · unreachable'
+                : 'Desktop worker not configured'
+          }
         />
         <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-[10px] text-faint">
           <ShieldCheck size={11} aria-hidden /> Consequential actions blocked
@@ -287,15 +293,15 @@ export function ComputerClient() {
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
                 <Monitor size={14} aria-hidden /> Computer Use
               </p>
-              <h2 className="mt-2 text-lg font-medium">Permissioned desktop worker</h2>
+              <h2 className="mt-2 text-lg font-medium">Full visual desktop agent</h2>
             </div>
-            <span className="font-mono text-[10px] text-faint">remote worker</span>
+            <span className="font-mono text-[10px] text-faint">vision · mouse · keyboard</span>
           </div>
 
           <p className="mt-4 text-xs leading-5 text-faint">
-            Desktop actions run through an isolated worker contract. Financial, destructive,
-            credential, upload, and external-communication permissions are hard-disabled in
-            this first slice.
+            The agent sees the current screen, chooses precise coordinates/actions, controls the
+            mouse and keyboard, captures a fresh screen, and repeats. Financial, destructive,
+            credential, file-transfer, and external-communication actions remain approval-gated.
           </p>
 
           <label htmlFor="computer-objective" className="mt-5 block text-xs font-medium text-muted">
@@ -305,7 +311,7 @@ export function ComputerClient() {
             id="computer-objective"
             value={computerObjective}
             onChange={(event) => setComputerObjective(event.target.value)}
-            placeholder="Open the design application, inspect the current project, and summarize what is visible."
+            placeholder="Open the Start menu, launch Calculator, calculate 42 × 19, and report the visible result."
             className="mt-1.5 min-h-28 w-full resize-y rounded-xl border border-line bg-canvas px-3 py-3 text-sm leading-6 outline-none placeholder:text-faint focus:border-focus"
           />
 
@@ -330,7 +336,7 @@ export function ComputerClient() {
               disabled={
                 computerBusy ||
                 computerObjective.trim().length < 3 ||
-                !status?.computer.configured
+                !status?.computer.reachable
               }
               className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-ink transition hover:bg-accent-hover disabled:opacity-40"
             >
@@ -350,11 +356,35 @@ export function ComputerClient() {
           )}
           {computerRun && (
             <div className="mt-4 rounded-xl border border-line bg-canvas p-4">
-              <p className="text-xs font-medium text-accent">{computerRun.status}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium text-accent">{computerRun.status}</p>
+                <span className="font-mono text-[10px] text-faint">
+                  {[computerRun.model, computerRun.activeWindow, computerRun.latencyMs ? `${computerRun.latencyMs}ms` : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              </div>
               {computerRun.summary && (
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">
                   {computerRun.summary}
                 </p>
+              )}
+              {computerRun.actions && computerRun.actions.length > 0 && (
+                <ol className="mt-4 space-y-2">
+                  {computerRun.actions.map((entry, index) => (
+                    <li key={index} className="rounded-lg border border-line px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-mono text-[10px] uppercase text-accent">
+                          {index + 1}. {entry.action?.type ?? 'action'}
+                        </span>
+                        <span className="text-[10px] text-faint">{entry.status}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted">
+                        {entry.action?.target ?? entry.message ?? 'Desktop action'}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
               )}
               {computerRun.screenshotDataUrl && (
                 <img
