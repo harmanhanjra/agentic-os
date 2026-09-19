@@ -1,61 +1,136 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { assertSafeProviderUrlResolved } from '../security/url';
-import type { ComputerWorkerResult } from './types';
+import { safeProviderFetch } from '../security/fetch';
+import type { ComputerAction } from './types';
+import {
+  ComputerWorkerHealthSchema,
+  ComputerWorkerStateSchema,
+  type ComputerWorkerHealth,
+  type ComputerWorkerState,
+} from './types';
 
-const ResultSchema = z
-  .object({
-    runId: z.string().optional(),
-    status: z.string().min(1),
-    summary: z.string().optional(),
-    actions: z.array(z.record(z.string(), z.unknown())).optional(),
-    screenshotDataUrl: z.string().optional(),
-  })
-  .passthrough();
+const ActionResponseSchema = z.object({
+  requestId: z.string(),
+  frameId: z.string(),
+  results: z.array(
+    z.object({
+      index: z.number().int().nonnegative(),
+      type: z.string(),
+      status: z.enum(['completed', 'blocked', 'failed']),
+      message: z.string(),
+      target: z.string(),
+    }),
+  ),
+});
+
+function workerBase(): { url: string; token: string | null; allowLocal: boolean } {
+  const raw = process.env.SCALEOS_COMPUTER_WORKER_URL?.trim();
+  if (!raw) throw new Error('SCALEOS_COMPUTER_WORKER_URL is not configured.');
+  const token = process.env.SCALEOS_COMPUTER_WORKER_TOKEN?.trim() || null;
+  const allowLocal =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.SCALEOS_COMPUTER_ALLOW_PRIVATE === 'true';
+  return { url: raw, token, allowLocal };
+}
+
+function workerHeaders(token: string | null) {
+  return {
+    ...(token ? { authorization: 'Bearer ' + token } : {}),
+  };
+}
 
 export function computerWorkerConfigured(): boolean {
   return Boolean(process.env.SCALEOS_COMPUTER_WORKER_URL?.trim());
 }
 
-export async function runComputerWorker(input: {
-  objective: string;
-  maxActions: number;
-}): Promise<ComputerWorkerResult> {
-  const raw = process.env.SCALEOS_COMPUTER_WORKER_URL?.trim();
-  if (!raw) throw new Error('SCALEOS_COMPUTER_WORKER_URL is not configured.');
-
-  const allowLocal =
-    process.env.NODE_ENV !== 'production' &&
-    process.env.SCALEOS_BROWSER_ALLOW_PRIVATE === 'true';
-  const base = await assertSafeProviderUrlResolved(raw, allowLocal);
-  const endpoint = new URL('/v1/tasks/run', base);
-  const token = process.env.SCALEOS_COMPUTER_WORKER_TOKEN?.trim();
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    redirect: 'error',
-    headers: {
-      'content-type': 'application/json',
-      ...(token ? { authorization: 'Bearer ' + token } : {}),
+export async function getComputerWorkerHealth(): Promise<ComputerWorkerHealth> {
+  const { url, token, allowLocal } = workerBase();
+  const endpoint = new URL('/health', url).toString();
+  const response = await safeProviderFetch(
+    endpoint,
+    {
+      headers: workerHeaders(token),
+      signal: AbortSignal.timeout(5000),
     },
-    body: JSON.stringify({
-      requestId: randomUUID(),
-      objective: input.objective,
-      maxActions: input.maxActions,
-      policy: {
-        allowFinancial: false,
-        allowDestructive: false,
-        allowExternalCommunication: false,
-        allowCredentials: false,
-        allowFileUpload: false,
-      },
-    }),
-    signal: AbortSignal.timeout(120_000),
-  });
+    allowLocal,
+  );
+  if (!response.ok) throw new Error('Computer worker health check returned HTTP ' + response.status + '.');
+  return ComputerWorkerHealthSchema.parse(await response.json());
+}
 
-  if (!response.ok) {
-    throw new Error('Computer worker returned HTTP ' + String(response.status) + '.');
+export async function probeComputerWorker(): Promise<{
+  reachable: boolean;
+  health?: ComputerWorkerHealth;
+}> {
+  if (!computerWorkerConfigured()) return { reachable: false };
+  try {
+    return { reachable: true, health: await getComputerWorkerHealth() };
+  } catch {
+    return { reachable: false };
+  }
+}
+
+export async function getComputerWorkerState(): Promise<ComputerWorkerState> {
+  const { url, token, allowLocal } = workerBase();
+  const endpoint = new URL('/v1/state', url).toString();
+  const response = await safeProviderFetch(
+    endpoint,
+    {
+      headers: workerHeaders(token),
+      signal: AbortSignal.timeout(15_000),
+    },
+    allowLocal,
+  );
+  if (!response.ok) throw new Error('Computer worker state returned HTTP ' + response.status + '.');
+  return ComputerWorkerStateSchema.parse(await response.json());
+}
+
+export async function executeComputerWorkerActions(input: {
+  frameId: string;
+  actions: ComputerAction[];
+  policy?: {
+    allowFinancial?: boolean;
+    allowDestructive?: boolean;
+    allowExternalCommunication?: boolean;
+    allowCredentials?: boolean;
+    allowFileUpload?: boolean;
+  };
+}) {
+  const { url, token, allowLocal } = workerBase();
+  const endpoint = new URL('/v1/actions', url).toString();
+  const executable = input.actions.filter((action) => action.type !== 'done');
+  if (executable.length === 0) {
+    return { requestId: randomUUID(), frameId: input.frameId, results: [] };
   }
 
-  return ResultSchema.parse(await response.json());
+  const response = await safeProviderFetch(
+    endpoint,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...workerHeaders(token),
+      },
+      body: JSON.stringify({
+        requestId: randomUUID(),
+        frameId: input.frameId,
+        actions: executable,
+        policy: {
+          allowFinancial: false,
+          allowDestructive: false,
+          allowExternalCommunication: false,
+          allowCredentials: false,
+          allowFileUpload: false,
+          ...input.policy,
+        },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    },
+    allowLocal,
+  );
+
+  if (!response.ok) {
+    throw new Error('Computer worker action endpoint returned HTTP ' + response.status + '.');
+  }
+  return ActionResponseSchema.parse(await response.json());
 }
