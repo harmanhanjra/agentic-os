@@ -49,6 +49,7 @@ export async function GET() {
   return Response.json(
     {
       data: {
+        credentialAdminRequired: process.env.NODE_ENV === 'production',
         providers: providers.map((def) => {
           const cred = stored.get(def.id);
           const { auth } = effectiveAuth(def);
