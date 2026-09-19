@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 /** Remove the locally stored credential (env config is untouched). */
 export async function DELETE(request: NextRequest) {
   const requestId = randomUUID();
-  const denied = requireProviderAdmin(request);
+  const denied = requireProviderAdmin(request, requestId);
   if (denied) return denied;
   const providerId = new URL(request.url).searchParams.get('providerId') ?? '';
   if (!getProvider(providerId)) {
