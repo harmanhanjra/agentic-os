@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     { status: 429, headers: { 'x-request-id': requestId, ...rateLimitHeaders(rate) } },
   );
   const parsed = Schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: { code: 'VALIDATION_ERROR', message: 'A Higgsfield model and prompt are required.' }, requestId }, { status: 422 });
+  if (!parsed.success) return Response.json({ error: { code: 'VALIDATION_ERROR', message: 'A Higgsfield model and prompt are required.' }, requestId }, { status: 422, headers: { 'x-request-id': requestId } });
   try {
     const result = await submitHiggsfieldImage({ ...parsed.data, modelId: parsed.data.modelId.slice('higgsfield:'.length) });
     return Response.json({ data: result, requestId }, { headers: { 'x-request-id': requestId } });
