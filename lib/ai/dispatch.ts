@@ -36,7 +36,7 @@ export interface ChatMessage {
  * addressable without waiting for a registry entry. Anthropic is excluded
  * because it needs a dedicated adapter.
  */
-const PASSTHROUGH_PROVIDERS = new Set(['openai', 'nvidia', 'litellm', 'ollama']);
+const PASSTHROUGH_PROVIDERS = new Set(['openai', 'nvidia', 'litellm', 'ollama', 'experiential']);
 
 export function resolveTarget(modelId: string): ResolvedTarget | null {
   const found = developmentModels.find((m) => m.id === modelId);

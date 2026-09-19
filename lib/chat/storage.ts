@@ -5,6 +5,13 @@
  * repository can adopt it without a UI rewrite.
  */
 
+export interface StoredJudgment {
+  score: number;
+  label: string;
+  confidence: number;
+  requestId: string;
+}
+
 export interface StoredMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -12,6 +19,8 @@ export interface StoredMessage {
   requestId?: string;
   latencyMs?: number;
   errorCode?: string;
+  judgment?: StoredJudgment;
+  plan?: string;
   createdAt: number;
 }
 

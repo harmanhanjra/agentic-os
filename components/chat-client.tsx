@@ -10,6 +10,7 @@ import {
   Copy,
   History,
   RotateCcw,
+  Scale,
   Square,
 } from 'lucide-react';
 import {
@@ -39,7 +40,8 @@ async function streamChat(
   signal: AbortSignal,
   onToken: (token: string) => void,
   excludedSkills: string[],
-): Promise<{ model: string | null; requestId: string | null }> {
+  planWithJev: boolean,
+): Promise<{ model: string | null; requestId: string | null; plan: string | null }> {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -47,6 +49,7 @@ async function streamChat(
       messages,
       ...(modelId ? { modelId } : {}),
       ...(excludedSkills.length > 0 ? { excludedSkills } : {}),
+      ...(planWithJev ? { planWithJev: true } : {}),
     }),
     signal,
   });
@@ -61,6 +64,7 @@ async function streamChat(
     throw err;
   }
   const model = res.headers.get('x-scaleos-model');
+  const plan = res.headers.get('x-scaleos-plan');
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -86,7 +90,7 @@ async function streamChat(
       }
     }
   }
-  return { model, requestId };
+  return { model, requestId, plan };
 }
 
 export function ChatClient() {
@@ -96,6 +100,7 @@ export function ChatClient() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [modelSel, setModelSel] = useState<string>(() => readSelectedModel());
+  const [planWithJev, setPlanWithJev] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const { models } = useRegistry();
@@ -146,7 +151,7 @@ export function ChatClient() {
       abortRef.current = controller;
       let assistant = '';
       try {
-        const { model, requestId } = await streamChat(
+        const { model, requestId, plan } = await streamChat(
           base.map((m) => ({ role: m.role, content: m.content })),
           modelId,
           controller.signal,
@@ -165,6 +170,7 @@ export function ChatClient() {
             });
           },
           disabledSkills,
+          planWithJev,
         );
         const latencyMs = Date.now() - t0;
         setConvo((prev) => {
@@ -176,10 +182,13 @@ export function ChatClient() {
               model: model ?? undefined,
               requestId: requestId ?? undefined,
               latencyMs,
+              plan: plan ?? undefined,
             };
           }
           return { ...prev, messages: copy };
         });
+
+        // Jev decides BEFORE the model generates (planning), never after.
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
           if (!assistant) {
@@ -312,6 +321,24 @@ export function ChatClient() {
               {labelForSelection(modelSel, models)}
             </span>
           )}
+          <span className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={planWithJev}
+              aria-label="Plan each reply with Jev before generation"
+              onClick={() => setPlanWithJev((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                planWithJev
+                  ? 'border-line-strong bg-panel text-ink'
+                  : 'border-line text-faint hover:text-muted'
+              }`}
+              title="Jev decides the best approach + depth before the model generates"
+            >
+              <Scale size={11} className={planWithJev ? 'text-accent' : ''} aria-hidden />
+              Jev plan
+            </button>
+          </span>
         </div>
 
         {messages.length === 0 ? (
@@ -419,6 +446,15 @@ export function ChatClient() {
                           {typeof m.latencyMs === 'number' && m.requestId ? ' · ' : ''}
                           {m.requestId ? `request ${m.requestId}` : ''}
                         </p>
+                      )}
+                      {m.plan && (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 py-0.5 text-[10px] text-muted"
+                          title={`Jev pre-generation plan · ${m.plan}`}
+                        >
+                          <Scale size={11} className="text-accent" aria-hidden />
+                          Jev plan · {m.plan}
+                        </span>
                       )}
                       <span className="flex items-center gap-1">
                         <button

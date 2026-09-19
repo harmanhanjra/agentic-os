@@ -3,6 +3,12 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { postChatCompletions, resolveTarget } from '@/lib/ai/dispatch';
 import type { ResolvedTarget } from '@/lib/ai/dispatch';
+import {
+  buildArenaJudgePayload,
+  buildArenaLeaderboard,
+  readPairVerdict,
+} from '@/lib/ai/judge';
+import { isJevConfigured, requestJevDecision } from '@/lib/ai/jev';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
@@ -10,6 +16,7 @@ export const runtime = 'nodejs';
 const RequestSchema = z.object({
   prompt: z.string().min(1).max(20_000),
   modelIds: z.array(z.string().min(1).max(300)).min(2).max(4),
+  judgeWithJev: z.boolean().optional().default(false),
 });
 
 export async function POST(request: NextRequest) {
@@ -51,12 +58,29 @@ export async function POST(request: NextRequest) {
       { status: 404, headers: { 'x-request-id': requestId } },
     );
 
+  // Fail before spending any model calls when the judge cannot run (mirrors
+  // dsh-eval: a run configured with a judge fails to start when the host has
+  // no LLM seam).
+  if (parsed.data.judgeWithJev && !isJevConfigured()) {
+    return Response.json(
+      {
+        error: {
+          code: 'PROVIDER_NOT_CONFIGURED',
+          message:
+            'Jev judging is on, but Jev is not configured. Set EXPERIENTIAL_API_KEY locally (server environment or .env.local) and retry.',
+        },
+        requestId,
+      },
+      { status: 503, headers: { 'x-request-id': requestId } },
+    );
+  }
+
   const started = Date.now();
   const ready = targets as Array<{
     id: string;
     target: ResolvedTarget;
   }>;
-  const results = await Promise.allSettled(
+  const settled = await Promise.allSettled(
     ready.map(async ({ id, target }) => {
       const begin = Date.now();
       const response = await postChatCompletions(
@@ -80,19 +104,83 @@ export async function POST(request: NextRequest) {
       };
     }),
   );
+  const results = settled.map((result) =>
+    result.status === 'fulfilled'
+      ? result.value
+      : { error: result.reason instanceof Error ? result.reason.message : 'MODEL_UNAVAILABLE' },
+  );
+  type ArenaHarvest = { modelId: string; providerId: string; content: string; latencyMs: number };
+const fulfilled = settled
+    .filter((r): r is PromiseFulfilledResult<ArenaHarvest> => r.status === 'fulfilled')
+    .map((r) => r.value)
+    .filter((v) => Boolean(v.content));
+
+  let judgment: null | {
+    status: 'NEEDS_TWO_ANSWERS' | 'DONE' | 'ERROR';
+    best?: { modelId: string; score: number } | null;
+    leaderboard?: Array<{
+      modelId: string;
+      score: number | null;
+      win: number;
+      loss: number;
+      tie: number;
+      winRate: number | null;
+    }>;
+    pairs?: Array<{ modelA: string; modelB: string; winner: string | null }>;
+    answers: Record<string, Record<string, unknown>>;
+    usage: unknown;
+    error?: string;
+  } = null;
+
+  if (parsed.data.judgeWithJev) {
+    if (fulfilled.length < 2) {
+      judgment = {
+        status: 'NEEDS_TWO_ANSWERS',
+        answers: {},
+        usage: null,
+        error: `Judging needs at least two competing answers; only ${fulfilled.length} model${fulfilled.length === 1 ? '' : 's'} returned output.`,
+      };
+    } else {
+      try {
+        const { request, pairs } = buildArenaJudgePayload({
+          prompt: parsed.data.prompt,
+          answers: fulfilled.map((v) => ({ modelId: v.modelId, content: v.content })),
+        });
+        const decision = await requestJevDecision(request);
+        judgment = {
+          status: 'DONE',
+          answers: decision.answers,
+          usage: decision.usage,
+          pairs: pairs.map((pair) => ({
+            modelA: pair.modelA,
+            modelB: pair.modelB,
+            winner: readPairVerdict(decision.answers[pair.questionId] ?? {}, pair)?.winner ?? null,
+          })),
+        };
+        const leaderboard = buildArenaLeaderboard(decision.answers, pairs);
+        judgment.leaderboard = leaderboard;
+        const best = leaderboard[0];
+        if (best && best.score !== null && best.score > 0) {
+          judgment.best = { modelId: best.modelId, score: best.score };
+        }
+      } catch (judgeError) {
+        judgment = {
+          status: 'ERROR',
+          answers: {},
+          usage: null,
+          error:
+            judgeError instanceof Error
+              ? judgeError.message.slice(0, 300)
+              : 'JEV_JUDGMENT_FAILED',
+        };
+      }
+    }
+  }
 
   return Response.json(
     {
-      data: results.map((result) =>
-        result.status === 'fulfilled'
-          ? result.value
-          : {
-              error:
-                result.reason instanceof Error
-                  ? result.reason.message
-                  : 'MODEL_UNAVAILABLE',
-            },
-      ),
+      data: results,
+      judgment,
       latencyMs: Date.now() - started,
       requestId,
     },
