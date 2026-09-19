@@ -72,6 +72,8 @@ export function ProvidersClient() {
   const [testing, setTesting] = useState<string | null>(null);
   const [testMsg, setTestMsg] = useState<Record<string, { ok: boolean; text: string }>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [adminRequired, setAdminRequired] = useState(false);
+  const [adminToken, setAdminToken] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -79,8 +81,10 @@ export function ProvidersClient() {
     fetch('/api/providers')
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
-        if (body?.data?.providers) setProviders(body.data.providers);
-        else setFailed(true);
+        if (body?.data?.providers) {
+          setProviders(body.data.providers);
+          setAdminRequired(Boolean(body.data.credentialAdminRequired));
+        } else setFailed(true);
       })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
@@ -105,7 +109,12 @@ export function ProvidersClient() {
     try {
       const res = await fetch('/api/providers', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(adminRequired && adminToken.trim()
+            ? { 'x-scaleos-admin-token': adminToken.trim() }
+            : {}),
+        },
         body: JSON.stringify({
           providerId: p.id,
           apiKey: keyInput.trim(),
@@ -165,6 +174,10 @@ export function ProvidersClient() {
     try {
       const res = await fetch(`/api/providers?providerId=${encodeURIComponent(p.id)}`, {
         method: 'DELETE',
+        headers:
+          adminRequired && adminToken.trim()
+            ? { 'x-scaleos-admin-token': adminToken.trim() }
+            : {},
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
@@ -199,6 +212,27 @@ export function ProvidersClient() {
         Connect the routers ScaleOS may use. Keys are AES-256-GCM encrypted
         server-side and never returned — the UI only ever shows a masked shape.
       </p>
+
+      {adminRequired && (
+        <div className="mt-5 max-w-xl rounded-xl border border-line bg-panel p-4">
+          <label htmlFor="scaleos-admin-token" className="text-xs font-medium text-muted">
+            Hosted admin token
+          </label>
+          <p className="mt-1 text-[11px] leading-5 text-faint">
+            Required only for saving or removing provider credentials in production. The token stays in memory for this page and is not stored by the browser.
+          </p>
+          <input
+            id="scaleos-admin-token"
+            type="password"
+            value={adminToken}
+            onChange={(event) => setAdminToken(event.target.value)}
+            placeholder="SCALEOS_ADMIN_TOKEN"
+            autoComplete="off"
+            spellCheck={false}
+            className="mt-2 w-full rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs outline-none placeholder:text-faint focus:border-focus"
+          />
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-8 space-y-3" aria-busy="true" aria-label="Loading providers">
@@ -347,7 +381,7 @@ export function ProvidersClient() {
                       <button
                         type="button"
                         onClick={() => save(p)}
-                        disabled={!keyInput.trim() || saving}
+                        disabled={!keyInput.trim() || saving || (adminRequired && !adminToken.trim())}
                         className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-ink transition hover:bg-accent-hover disabled:opacity-40"
                       >
                         {saving ? 'Saving…' : 'Save key'}
