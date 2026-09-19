@@ -77,3 +77,27 @@ summary, and optionally a screenshot data URL.
 - model output is treated as untrusted and policy checked before execution.
 
 The next slice adds durable runs, approval checkpoints, signed permission grants, and audit logs.
+
+## End-to-end verification
+
+Run:
+
+```bash
+npm run test:e2e:browser
+```
+
+The harness starts an isolated real Chrome/Chromium process with CDP, a local deterministic
+OpenAI-compatible model stub, a local HTML fixture, and a ScaleOS development server. It then
+calls the real `/api/computer/browser/run` endpoint and verifies:
+
+- ScaleOS can probe the Chrome CDP endpoint;
+- Browser Use navigates a real page;
+- the agent fills a real input;
+- the agent clicks a real button;
+- the page DOM changes as expected;
+- Browser Use extracts the changed result;
+- a final screenshot is returned;
+- the action trace contains fill, click, extract, and done.
+
+No external model API key or public internet access is required for this test. Set `CHROME_BIN`
+when Chrome/Chromium is not in a standard system location.
