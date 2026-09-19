@@ -25,6 +25,7 @@ import {
 import { ConversationHistory } from './conversation-history';
 import { Markdown } from './markdown';
 import { ModelMenu } from './model-menu';
+import { toast } from 'sonner';
 import { AUTO_ID, labelForSelection, readSelectedModel, useRegistry } from './use-registry';
 import { useSkills } from './use-skills';
 
@@ -274,8 +275,9 @@ export function ChatClient() {
   const copyText = useCallback(async (text: string, index: number) => {
     try {
       await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard');
     } catch {
-      /* clipboard unavailable */
+      toast.error('Copy failed — clipboard unavailable');
     }
     setCopied(index);
     setTimeout(() => setCopied(null), 1500);
@@ -310,7 +312,7 @@ export function ChatClient() {
             type="button"
             onClick={() => setHistoryOpen(true)}
             aria-label="Open chat history"
-            className="rounded-lg p-2 text-muted hover:bg-raised hover:text-ink md:hidden"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted hover:bg-raised hover:text-ink md:hidden"
           >
             <History size={16} aria-hidden />
           </button>
@@ -430,7 +432,15 @@ export function ChatClient() {
                 ) : (
                   <div className="max-w-full">
                     {m.content ? (
-                      <Markdown text={m.content} />
+                      <>
+                        <Markdown text={m.content} />
+                        {busy && i === messages.length - 1 && (
+                          <span
+                            aria-hidden
+                            className="ml-0.5 inline-block h-4 w-[7px] translate-y-[3px] animate-pulse-soft rounded-[1px] bg-accent"
+                          />
+                        )}
+                      </>
                     ) : (
                       <p className="text-sm text-faint">…</p>
                     )}
@@ -496,7 +506,7 @@ export function ChatClient() {
             e.preventDefault();
             send(input);
           }}
-          className="sticky bottom-0 bg-canvas pb-4 pt-2"
+          className="sticky bottom-0 bg-canvas pb-[max(1rem,env(safe-area-inset-bottom))] pt-2"
         >
           <div className="flex items-end gap-2 rounded-2xl border border-line bg-panel p-3 transition focus-within:border-focus">
             <label htmlFor="chat-input" className="sr-only">

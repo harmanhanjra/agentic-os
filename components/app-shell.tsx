@@ -6,6 +6,8 @@ import { Menu, Moon, Search, Sparkles, Sun, X } from 'lucide-react';
 import { CommandPalette } from './command-palette';
 import { SidebarBody } from './sidebar';
 import { useTheme } from './theme';
+import { Toaster } from './ui/sonner';
+import { TooltipProvider } from './ui/tooltip';
 
 /**
  * Shared workspace shell: desktop sidebar, mobile drawer, header with
@@ -32,7 +34,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
+    <TooltipProvider>
     <div className="flex min-h-screen bg-canvas text-ink">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-accent focus:px-3 focus:py-2 focus:text-xs focus:font-semibold focus:text-accent-ink"
+      >
+        Skip to content
+      </a>
       <aside className="hidden w-56 shrink-0 border-r border-line bg-panel md:block">
         <div className="sticky top-0 h-screen overflow-y-auto">
           <SidebarBody />
@@ -41,7 +50,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile drawer */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Workspace navigation"
+        >
           <div
             className="absolute inset-0 animate-fade-in bg-black/60"
             onClick={() => setDrawerOpen(false)}
@@ -53,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Close navigation"
-                className="rounded-lg p-2 text-muted hover:bg-raised hover:text-ink"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted hover:bg-raised hover:text-ink"
               >
                 <X size={16} aria-hidden />
               </button>
@@ -69,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open navigation"
-            className="rounded-lg p-2 text-muted hover:bg-raised hover:text-ink md:hidden"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted hover:bg-raised hover:text-ink md:hidden"
           >
             <Menu size={18} aria-hidden />
           </button>
@@ -94,7 +108,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search workspace"
-            className="ml-auto rounded-lg p-2 text-muted hover:bg-raised hover:text-ink md:hidden"
+            className="ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted hover:bg-raised hover:text-ink md:hidden"
           >
             <Search size={16} aria-hidden />
           </button>
@@ -102,7 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={toggle}
             aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="rounded-lg p-2 text-muted transition hover:bg-raised hover:text-ink"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted transition hover:bg-raised hover:text-ink"
           >
             {theme === 'dark' ? (
               <Sun size={16} aria-hidden />
@@ -119,10 +133,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </header>
 
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+        <div id="main-content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
+          {children}
+        </div>
       </section>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {/* Active ScaleOS theme (data-theme), not the OS preference. */}
+      <Toaster theme={theme} position="bottom-center" />
     </div>
+    </TooltipProvider>
   );
 }

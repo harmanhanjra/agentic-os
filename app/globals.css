@@ -71,7 +71,10 @@
   --color-primary-foreground: var(--color-accent-ink);
   --color-secondary: var(--color-raised);
   --color-secondary-foreground: var(--color-ink);
-  --color-muted: var(--color-raised);
+  /* NOTE: --color-muted is intentionally NOT redefined here. The base @theme
+     above owns --color-muted (the gray text token); redefining it in this
+     block would hijack every text-muted utility app-wide. Muted surfaces
+     use --color-raised directly. */
   --color-muted-foreground: var(--color-muted);
   --color-accent-foreground: var(--color-accent-ink);
   --color-destructive: var(--color-danger);
@@ -88,6 +91,7 @@
 
 :root {
   --radius: 0.75rem;
+  color-scheme: dark;
 }
 
 /* Light theme: same semantic tokens, light values. Toggled via
@@ -110,10 +114,6 @@
   --color-danger: #b3261e;
   --color-danger-ink: #fdecea;
   color-scheme: light;
-}
-
-:root {
-  color-scheme: dark;
 }
 
 * {
