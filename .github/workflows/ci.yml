@@ -1,8 +1,8 @@
-name: V0.2 Quality Gates
+name: ScaleOS Quality Gates
 
 on:
   push:
-    branches: ['master', 'v0.2-hardening']
+    branches: ['master', 'v0.2-hardening', 'v0.3-computer-browser-use']
   pull_request:
     branches: ['master']
 
