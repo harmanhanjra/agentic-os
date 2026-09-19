@@ -47,11 +47,24 @@ interface BrowserRun {
 }
 
 interface ComputerRun {
+  runId?: string;
   status: string;
+  model?: string;
   summary?: string;
+  activeWindow?: string | null;
+  latencyMs?: number;
   screenshotDataUrl?: string;
-  actions?: Array<Record<string, unknown>>;
-  [key: string]: unknown;
+  actions?: Array<{
+    index?: number;
+    action?: {
+      type?: string;
+      target?: string;
+      text?: string;
+      [key: string]: unknown;
+    };
+    status?: string;
+    message?: string;
+  }>;
 }
 
 function ReadyBadge({ ready, label }: { ready: boolean; label: string }) {
