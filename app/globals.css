@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @theme {
   --color-canvas: #0b0c0b;
@@ -54,6 +55,39 @@
       opacity: 0.45;
     }
   }
+}
+
+/* shadcn/ui slot aliases layered on the ScaleOS tokens. Utilities like
+   bg-background / text-muted-foreground / border-border resolve to the
+   canonical ScaleOS semantic tokens so the design system stays single-source. */
+@theme inline {
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-panel);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-overlay);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-ink);
+  --color-secondary: var(--color-raised);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-raised);
+  --color-muted-foreground: var(--color-muted);
+  --color-accent-foreground: var(--color-accent-ink);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-danger-ink);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line-strong);
+  --color-ring: var(--color-focus);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
 }
 
 /* Light theme: same semantic tokens, light values. Toggled via
