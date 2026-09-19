@@ -92,10 +92,12 @@ function endpointFor(providerId: string): {
     );
   }
   const url = `${auth.baseURL}/chat/completions`;
-  // Local routers (Ollama) are allowed to stay on loopback; hosted
-  // deployments still block private targets for remote providers.
-  assertSafeProviderUrl(url, def.local ? true : process.env.NODE_ENV !== 'production');
-  return { url, apiKey: auth.apiKey, allowLocal: def.local };
+  // Local routers are allowed to stay on loopback. In development, custom
+  // OpenAI-compatible base URLs may also point to localhost for testing.
+  // Production still blocks private targets for remote providers.
+  const allowPrivate = def.local || process.env.NODE_ENV !== 'production';
+  assertSafeProviderUrl(url, allowPrivate);
+  return { url, apiKey: auth.apiKey, allowLocal: allowPrivate };
 }
 
 /**

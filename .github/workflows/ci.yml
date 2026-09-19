@@ -32,5 +32,8 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Browser Use E2E
+        run: npm run test:e2e:browser
+
       - name: Production build
         run: npm run build
