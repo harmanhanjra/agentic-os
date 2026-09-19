@@ -1,6 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { isPrivateAddress } from '../security/url';
+import { safeProviderFetch } from '../security/fetch';
 import type { BrowserSnapshot } from './types';
 
 interface Pending {
@@ -44,11 +45,16 @@ async function resolveWebSocketEndpoint(raw: string): Promise<string> {
   const url = await assertSafeCdpEndpoint(raw);
   if (url.protocol === 'ws:' || url.protocol === 'wss:') return url.toString();
 
-  const versionUrl = new URL('/json/version', url);
-  const response = await fetch(versionUrl, {
-    redirect: 'error',
-    signal: AbortSignal.timeout(5000),
-  });
+  const versionUrl = new URL(url.toString());
+  versionUrl.pathname = versionUrl.pathname.replace(/\/$/, '') + '/json/version';
+  const allowPrivate =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.SCALEOS_BROWSER_ALLOW_PRIVATE === 'true';
+  const response = await safeProviderFetch(
+    versionUrl.toString(),
+    { signal: AbortSignal.timeout(5000) },
+    allowPrivate,
+  );
   if (!response.ok) throw new Error('CDP endpoint did not expose /json/version.');
   const body = (await response.json()) as { webSocketDebuggerUrl?: string };
   if (!body.webSocketDebuggerUrl) throw new Error('CDP endpoint did not return a browser WebSocket URL.');
