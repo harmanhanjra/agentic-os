@@ -36,7 +36,7 @@ export const workspaceNav: NavEntry[] = [
 ];
 
 export const controlNav: NavEntry[] = [
-  { label: 'Usage', icon: Activity, href: '/settings' },
+  { label: 'Usage', icon: Activity, href: '/settings#usage' },
   { label: 'Models', icon: Boxes, href: '/models' },
   { label: 'Settings', icon: Settings2, href: '/settings' },
 ];
@@ -44,7 +44,10 @@ export const controlNav: NavEntry[] = [
 function NavLink({ entry }: { entry: NavEntry }) {
   const pathname = usePathname();
   const { label, icon: Icon, href, soon } = entry;
-  const active = href !== undefined && pathname === href;
+  // Usage links to the #usage anchor on Settings; keep it from
+  // double-highlighting alongside Settings on the same page.
+  const active =
+    href !== undefined && !href.includes('#') && pathname === href;
   const classes = `group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] transition ${
     active
       ? 'bg-overlay text-accent'
