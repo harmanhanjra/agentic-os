@@ -132,6 +132,45 @@ export async function postChatCompletions(
   }
 }
 
+
+export async function postVisionChatCompletions(
+  target: ResolvedTarget,
+  system: string,
+  userText: string,
+  imageDataUrl: string,
+): Promise<Response> {
+  const { url, apiKey, allowLocal } = endpointFor(target.providerId);
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  try {
+    return await safeProviderFetch(
+      url,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: target.externalModelId,
+          messages: [
+            { role: 'system', content: system },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: userText },
+                { type: 'image_url', image_url: { url: imageDataUrl } },
+              ],
+            },
+          ],
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(120_000),
+      },
+      allowLocal,
+    );
+  } catch {
+    throw new ScaleOSError('NETWORK_ERROR', 'Could not safely reach the vision provider.');
+  }
+}
+
 export async function submitHiggsfieldImage(request: ImageGenerationRequest): Promise<ImageGenerationResult> {
   const def = getProvider('higgsfield');
   if (!def) throw new ScaleOSError('MODEL_NOT_FOUND', 'Higgsfield provider is unavailable.');

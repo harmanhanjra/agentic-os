@@ -1,4 +1,4 @@
-# ScaleOS AI V0.2 Task Checklist
+# ScaleOS AI V0.3 Task Checklist
 
 - [x] Foundation repository and documentation
   - Acceptance: AGENTS.md, spec, plan, and this checklist exist.
@@ -42,8 +42,8 @@
 ## V0.3 in progress
 - [x] DOM-first Browser Use through CDP with semantic element refs and bounded autonomous runs.
 - [x] Browser action policy blocking consequential side effects until explicit approvals exist.
-- [x] Computer Use API + isolated desktop-worker contract.
-- [x] `/computer` mission UI with readiness, traces, extraction, and screenshot evidence.
+- [x] Full Computer Use: real isolated desktop worker with screenshots, mouse, keyboard, drag, scroll, hotkeys, and key presses.
+- [x] `/computer` mission UI with real worker health, visual action traces, active-window metadata, and screenshot evidence.\n- [x] Vision-driven Computer Use loop: screenshot → plan → policy → execute → re-observe.\n- [x] Deterministic full Computer Use E2E in CI.
 - [x] Real Chrome/CDP Browser Use end-to-end CI test (navigate → fill → click → extract → screenshot).
 - [ ] Visual/pixel fallback when DOM semantics are insufficient.
 - [ ] Permission kernel with signed approval checkpoints for consequential actions.

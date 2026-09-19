@@ -19,7 +19,7 @@ output — unconfigured routers report honest errors with request IDs.
   Ready / Needs-key state.
 - **Agents** — bounded planner → executor → synthesizer runs with 1–5 steps, request IDs, and rate limits.
 - **Browser Use V0.3 alpha** — autonomous DOM-first web operation through Chrome DevTools Protocol, semantic element references, action batching, extraction, screenshot evidence, URL safety checks, action budgets, and hard policy gates for consequential actions.
-- **Computer Use V0.3 alpha** — delegates desktop objectives to an isolated permissioned worker instead of exposing shell/OS privileges to the Next.js control plane.
+- **Full Computer Use V0.3 alpha** — vision-driven screenshot → action → re-observe loop with an isolated desktop worker that can move/click/drag the mouse, scroll, type, use hotkeys, press keys, and return screenshot evidence without exposing shell access.
 - **Model Arena** — run one prompt across 2–4 models concurrently with
   per-model latency, provider tags, and honest per-model failure states.
 - **Providers control plane** (`/settings`) — add keys without restarts,
@@ -38,7 +38,7 @@ output — unconfigured routers report honest errors with request IDs.
 - **Media jobs** — Higgsfield image generation with async job status
   polling (`/api/images/*`).
 - **Security boundaries** — Zod validation at every edge, encrypted credentials, masked secrets, DNS-aware SSRF and redirect protection, hosted provider-admin protection, request throttling, security headers, request IDs, and escaped model markdown.
-- **CI quality gates** — master and pull requests run typecheck, Vitest, a real Chrome Browser Use end-to-end test, and a production Next.js build in GitHub Actions.
+- **CI quality gates** — master and pull requests run typecheck, Vitest, a real Chrome Browser Use E2E, a full Computer Use orchestration E2E, and a production Next.js build.
 
 ## Quickstart
 
@@ -71,7 +71,7 @@ auto-routing light up immediately.
 | `BROWSER_CDP_URL` | Chrome DevTools Protocol endpoint used by Browser Use |
 | `SCALEOS_BROWSER_ALLOW_PRIVATE` | Local-development-only opt-in for private/local browser targets |
 | `SCALEOS_COMPUTER_WORKER_URL` | Isolated desktop worker endpoint for Computer Use |
-| `SCALEOS_COMPUTER_WORKER_TOKEN` | Optional bearer token for the desktop worker |
+| `SCALEOS_COMPUTER_WORKER_TOKEN` | Bearer token shared with the desktop worker |\n| `SCALEOS_COMPUTER_ALLOW_PRIVATE` | Development-only opt-in for a localhost/private desktop worker |
 
 See `.env.example`. Provider keys stay server-side. Never commit `.env.local`
 or anything under `data/`.
@@ -118,7 +118,7 @@ lib/ai/         # provider catalog, registry, routing, dispatch (contracts first
 lib/security/   # AES-GCM crypto, SSRF-safe URLs, encrypted credential store
 lib/skills/     # host skill scanner + chat context builder
 lib/chat/       # conversation persistence (localStorage slice, DB-ready shape)
-lib/computer/   # CDP browser driver, policy engine, browser agent, desktop worker adapter
+lib/computer/   # CDP browser driver + vision desktop agent + worker client + safety policies\ncomputer_worker/ # real Python desktop worker (screen, mouse, keyboard, virtual CI backend)
 tests/          # contract + unit tests
 docs/           # architecture + provider adapter notes
 ```
@@ -129,7 +129,7 @@ Inputs are validated at boundaries with Zod; credentials are encrypted at rest a
 
 ## Known limitations & roadmap
 
-Workspace auth, PostgreSQL repositories, durable agent memory, approval checkpoints, permissioned consequential actions, visual browser fallback, usage charts, and attachments/storage are upcoming vertical slices. Browser Use requires a configured CDP endpoint; desktop Computer Use requires an isolated worker. Kimi K3 and other heavyweight
+Workspace auth, PostgreSQL repositories, durable agent memory, signed approval checkpoints for consequential actions, usage charts, and attachments/storage are upcoming vertical slices. Browser Use requires a configured CDP endpoint. Full Computer Use now ships with the real `computer_worker` service; local operation requires starting that worker and connecting a configured vision-capable model. Kimi K3 and other heavyweight
 reasoning models currently exceed the 120s upstream budget on trial-tier
 keys — tracked as a follow-up (longer budgets / reasoning params / paid
 tier). The UI exposes no fake success state; unavailable integrations
