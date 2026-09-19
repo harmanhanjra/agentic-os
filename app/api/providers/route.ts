@@ -76,7 +76,7 @@ export async function GET() {
 /** Save (or replace) a provider credential into the encrypted local store. */
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
-  const denied = requireProviderAdmin(request);
+  const denied = requireProviderAdmin(request, requestId);
   if (denied) return denied;
   const parsed = SaveSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
