@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   MessageSquare,
+  Monitor,
   Puzzle,
   Settings2,
   Sparkles,
@@ -29,6 +30,7 @@ export const workspaceNav: NavEntry[] = [
   { label: 'Image Studio', icon: ImageIcon, href: '/image' },
   { label: 'Skills', icon: Puzzle, href: '/skills' },
   { label: 'Agents', icon: Bot, href: '/agents' },
+  { label: 'Computer Use', icon: Monitor, href: '/computer' },
   { label: 'Flows', icon: Workflow, href: '/flows' },
   { label: 'Files', icon: Boxes, soon: true },
 ];
