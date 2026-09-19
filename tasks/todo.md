@@ -44,6 +44,7 @@
 - [x] Browser action policy blocking consequential side effects until explicit approvals exist.
 - [x] Computer Use API + isolated desktop-worker contract.
 - [x] `/computer` mission UI with readiness, traces, extraction, and screenshot evidence.
+- [x] Real Chrome/CDP Browser Use end-to-end CI test (navigate → fill → click → extract → screenshot).
 - [ ] Visual/pixel fallback when DOM semantics are insufficient.
 - [ ] Permission kernel with signed approval checkpoints for consequential actions.
 - [ ] Workspace authentication and PostgreSQL persistence.
