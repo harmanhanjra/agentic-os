@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { probeCdpBrowser } from '@/lib/computer/cdp';
-import { computerWorkerConfigured } from '@/lib/computer/worker';
+import { computerWorkerConfigured, probeComputerWorker } from '@/lib/computer/worker';
 
 export const runtime = 'nodejs';
 export const maxDuration = 15;
@@ -9,7 +9,13 @@ export async function GET() {
   const requestId = randomUUID();
   const endpoint = process.env.BROWSER_CDP_URL?.trim();
   const browserConfigured = Boolean(endpoint);
-  const browserReachable = endpoint ? await probeCdpBrowser(endpoint) : false;
+
+  const [browserReachable, computerProbe] = await Promise.all([
+    endpoint ? probeCdpBrowser(endpoint) : Promise.resolve(false),
+    computerWorkerConfigured()
+      ? probeComputerWorker()
+      : Promise.resolve({ reachable: false as const }),
+  ]);
 
   return Response.json(
     {
@@ -21,7 +27,11 @@ export async function GET() {
         },
         computer: {
           configured: computerWorkerConfigured(),
-          mode: 'permissioned-worker',
+          reachable: computerProbe.reachable,
+          healthy: computerProbe.health?.status === 'healthy',
+          mode: computerProbe.health?.mode ?? 'vision-desktop-worker',
+          platform: computerProbe.health?.platform ?? null,
+          capabilities: computerProbe.health?.capabilities ?? [],
         },
         policy: {
           financial: false,
