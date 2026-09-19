@@ -1,6 +1,6 @@
-# ScaleOS AI · V0.2
+# ScaleOS AI · V0.3 Alpha
 
-> One workspace. Every AI model. Now with a bounded agent runtime.
+> One workspace. Every AI model. Agents that can reason, browse, and operate computers through permissioned execution.
 
 ScaleOS AI is a provider-agnostic AI operating workspace: connect hosted or
 local models, chat with history and rich rendering, compare models side by
@@ -17,7 +17,9 @@ output — unconfigured routers report honest errors with request IDs.
   copy, tables, quotes), copy / regenerate / retry per message, model +
   latency + request-ID footers, and a model switcher with live
   Ready / Needs-key state.
-- **Agents V0.2** — bounded planner → executor → synthesizer runs with 1–5 steps, explicit no-tool mode, request IDs, and rate limits. External/destructive tools are intentionally disabled until permissioned tool execution lands.
+- **Agents** — bounded planner → executor → synthesizer runs with 1–5 steps, request IDs, and rate limits.
+- **Browser Use V0.3 alpha** — autonomous DOM-first web operation through Chrome DevTools Protocol, semantic element references, action batching, extraction, screenshot evidence, URL safety checks, action budgets, and hard policy gates for consequential actions.
+- **Computer Use V0.3 alpha** — delegates desktop objectives to an isolated permissioned worker instead of exposing shell/OS privileges to the Next.js control plane.
 - **Model Arena** — run one prompt across 2–4 models concurrently with
   per-model latency, provider tags, and honest per-model failure states.
 - **Providers control plane** (`/settings`) — add keys without restarts,
@@ -66,19 +68,26 @@ auto-routing light up immediately.
 | `SCALEOS_DATA_DIR` | Credential store location (default `./data`, gitignored) |
 | `SCALEOS_SKILLS_DIRS` | Extra skill directories (delimiter-separated) |
 | `DATABASE_URL` / `AUTH_SECRET` | Reserved for the PostgreSQL/auth slice |
+| `BROWSER_CDP_URL` | Chrome DevTools Protocol endpoint used by Browser Use |
+| `SCALEOS_BROWSER_ALLOW_PRIVATE` | Local-development-only opt-in for private/local browser targets |
+| `SCALEOS_COMPUTER_WORKER_URL` | Isolated desktop worker endpoint for Computer Use |
+| `SCALEOS_COMPUTER_WORKER_TOKEN` | Optional bearer token for the desktop worker |
 
 See `.env.example`. Provider keys stay server-side. Never commit `.env.local`
 or anything under `data/`.
 
 ## Routes & APIs
 
-Pages: `/` (workspace home) · `/chat` · `/agents` · `/arena` · `/image` · `/skills` ·
+Pages: `/` (workspace home) · `/chat` · `/agents` · `/computer` · `/arena` · `/image` · `/skills` ·
 `/flows` · `/models` · `/settings`.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/chat` | POST | Streaming chat completions (OpenAI-compatible dispatch) |
 | `/api/agents/run` | POST | Bounded planner/executor/synthesizer agent run |
+| `/api/computer/status` | GET | Browser/desktop execution readiness without exposing endpoints or tokens |
+| `/api/computer/browser/run` | POST | Autonomous DOM-first Browser Use run |
+| `/api/computer/run` | POST | Permissioned desktop Computer Use run |
 | `/api/arena` | POST | Concurrent 2–4 model comparison |
 | `/api/status` | GET | Live routers + registry models, no secrets |
 | `/api/skills` | GET | Host skill inventory (ids, names, descriptions) |
@@ -108,17 +117,18 @@ lib/ai/         # provider catalog, registry, routing, dispatch (contracts first
 lib/security/   # AES-GCM crypto, SSRF-safe URLs, encrypted credential store
 lib/skills/     # host skill scanner + chat context builder
 lib/chat/       # conversation persistence (localStorage slice, DB-ready shape)
+lib/computer/   # CDP browser driver, policy engine, browser agent, desktop worker adapter
 tests/          # contract + unit tests
 docs/           # architecture + provider adapter notes
 ```
 
 ## Security model
 
-Inputs are validated at boundaries with Zod; credentials are encrypted at rest and masked in every UI response; provider URL targets are checked before dispatch and after DNS resolution; redirects are blocked at provider boundaries; plaintext secrets never reach the client; and model output is escaped before controlled markdown tags are injected. In hosted production, provider credential mutations require `SCALEOS_ADMIN_TOKEN` until workspace authentication replaces this temporary admin boundary.
+Inputs are validated at boundaries with Zod; credentials are encrypted at rest and masked in every UI response; provider and browser URL targets are checked before dispatch and after DNS resolution; redirects are blocked at provider boundaries; plaintext secrets never reach the client; and model output is escaped before controlled markdown tags are injected. Browser/Computer Use applies action budgets and blocks financial, destructive, credential, upload, account, and external-communication side effects until the permission kernel can require explicit approval. In hosted production, provider credential mutations require `SCALEOS_ADMIN_TOKEN` until workspace authentication replaces this temporary admin boundary.
 
 ## Known limitations & roadmap
 
-Workspace auth, PostgreSQL repositories, durable agent memory, permissioned tool execution, usage charts, and attachments/storage are upcoming vertical slices. Kimi K3 and other heavyweight
+Workspace auth, PostgreSQL repositories, durable agent memory, approval checkpoints, permissioned consequential actions, visual browser fallback, usage charts, and attachments/storage are upcoming vertical slices. Browser Use requires a configured CDP endpoint; desktop Computer Use requires an isolated worker. Kimi K3 and other heavyweight
 reasoning models currently exceed the 120s upstream budget on trial-tier
 keys — tracked as a follow-up (longer budgets / reasoning params / paid
 tier). The UI exposes no fake success state; unavailable integrations

@@ -39,7 +39,13 @@
 - [x] Security headers and GitHub Actions quality gates.
 - [x] Bounded planner → executor → synthesizer Agent Runtime with `/agents`.
 
-## V0.3 next
+## V0.3 in progress
+- [x] DOM-first Browser Use through CDP with semantic element refs and bounded autonomous runs.
+- [x] Browser action policy blocking consequential side effects until explicit approvals exist.
+- [x] Computer Use API + isolated desktop-worker contract.
+- [x] `/computer` mission UI with readiness, traces, extraction, and screenshot evidence.
+- [ ] Visual/pixel fallback when DOM semantics are insufficient.
+- [ ] Permission kernel with signed approval checkpoints for consequential actions.
 - [ ] Workspace authentication and PostgreSQL persistence.
 - [ ] Durable agent runs, memory, budgets, and cancellation.
 - [ ] Permissioned tool registry with approval gates and audit log.
