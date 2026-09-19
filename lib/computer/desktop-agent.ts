@@ -146,8 +146,19 @@ async function decide(
 
 function validateCoordinates(action: ComputerAction, state: ComputerWorkerState) {
   const points: Array<[number | undefined, number | undefined]> = [];
-  if ('x' in action || 'y' in action) points.push([action.x, action.y]);
-  if (action.type === 'drag') points.push([action.x2, action.y2]);
+  switch (action.type) {
+    case 'move':
+    case 'click':
+    case 'double_click':
+    case 'right_click':
+      points.push([action.x, action.y]);
+      break;
+    case 'drag':
+      points.push([action.x, action.y], [action.x2, action.y2]);
+      break;
+    default:
+      break;
+  }
   for (const [x, y] of points) {
     if (
       x === undefined ||
