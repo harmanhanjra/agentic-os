@@ -1,20 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { computerWorkerConfigured, runComputerWorker } from '@/lib/computer/worker';
+import { ScaleOSError } from '@/lib/ai/types';
+import { runComputerAgent } from '@/lib/computer/desktop-agent';
+import { computerWorkerConfigured } from '@/lib/computer/worker';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const RequestSchema = z.object({
   objective: z.string().trim().min(3).max(20_000),
+  modelId: z.string().min(1).max(300).optional(),
   maxActions: z.number().int().min(1).max(30).default(15),
+  includeScreenshot: z.boolean().default(true),
 });
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
-  const rate = checkRateLimit(request, 'computer-use', 4, 60_000);
+  const rate = checkRateLimit(request, 'computer-use', 3, 60_000);
   if (!rate.allowed) {
     return Response.json(
       {
@@ -32,7 +36,10 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return Response.json(
       {
-        error: { code: 'VALIDATION_ERROR', message: 'Provide a computer objective and valid action budget.' },
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Provide a computer objective, optional vision model, and valid action budget.',
+        },
         requestId,
       },
       { status: 422, headers: { 'x-request-id': requestId } },
@@ -45,7 +52,7 @@ export async function POST(request: NextRequest) {
         error: {
           code: 'COMPUTER_WORKER_NOT_CONFIGURED',
           message:
-            'Desktop Computer Use requires SCALEOS_COMPUTER_WORKER_URL. Browser Use works independently through BROWSER_CDP_URL.',
+            'Full Computer Use requires SCALEOS_COMPUTER_WORKER_URL and a running computer_worker service.',
         },
         requestId,
       },
@@ -54,12 +61,28 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await runComputerWorker(parsed.data);
+    const result = await runComputerAgent(parsed.data);
     return Response.json(
       { data: result, requestId },
       { headers: { 'x-request-id': requestId } },
     );
   } catch (error) {
+    if (error instanceof ScaleOSError) {
+      const status =
+        error.code === 'MODEL_NOT_FOUND'
+          ? 404
+          : error.code === 'RATE_LIMITED'
+            ? 429
+            : error.code === 'MODEL_UNAVAILABLE' ||
+                error.code === 'PROVIDER_NOT_CONFIGURED'
+              ? 503
+              : 502;
+      return Response.json(
+        { error: { code: error.code, message: error.message }, requestId },
+        { status, headers: { 'x-request-id': requestId } },
+      );
+    }
+
     return Response.json(
       {
         error: {
@@ -67,7 +90,7 @@ export async function POST(request: NextRequest) {
           message:
             error instanceof Error && process.env.NODE_ENV !== 'production'
               ? error.message
-              : 'Computer Use worker could not complete the run.',
+              : 'Full Computer Use could not complete the run.',
         },
         requestId,
       },
