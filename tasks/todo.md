@@ -16,10 +16,10 @@
   - Acceptance: Encrypted credentials, masked output, SSRF-safe URL validation, provider adapter contract.
   - Verify: Security-focused unit tests and source audit.
 
-- [x] Chat, arena, image, attachments
+- [x] Chat, arena, and image-generation foundations
   - Acceptance: Routes/components use the shared contracts, streaming/cancellation boundaries are present, no production fake output.
   - Verify: Contract/integration tests and UI smoke checks.
-  - Note: Chat streaming and Arena concurrent request boundaries are implemented; image/attachments storage remain the next control-plane slice.
+  - Note: Chat streaming, Arena concurrency, and Higgsfield image jobs are implemented; attachments and durable asset storage remain a future slice.
 
 - [ ] Agentic control plane and foundations
   - Acceptance: Provider/model/usage/settings/agent/flow screens have working state boundaries and intentional empty states.
