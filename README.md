@@ -40,7 +40,7 @@ output — unconfigured routers report honest errors with request IDs.
 
 ## Quickstart
 
-Requirements: Node.js 20+, pnpm 10+ (npm works as a fallback).
+Requirements: Node.js 22.12+ (Node 24 recommended), pnpm 10+ (npm works as a fallback).
 
 ```bash
 pnpm install
