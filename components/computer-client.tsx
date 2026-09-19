@@ -15,7 +15,14 @@ import {
 
 interface StatusPayload {
   browser: { configured: boolean; reachable: boolean; mode: string };
-  computer: {\n    configured: boolean;\n    reachable: boolean;\n    healthy: boolean;\n    mode: string;\n    platform: string | null;\n    capabilities: string[];\n  };
+  computer: {
+    configured: boolean;
+    reachable: boolean;
+    healthy: boolean;
+    mode: string;
+    platform: string | null;
+    capabilities: string[];
+  };
   policy: Record<string, boolean>;
 }
 
