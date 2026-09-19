@@ -11,7 +11,10 @@ function sameSecret(a: string, b: string): boolean {
  * Local development may mutate the encrypted provider store directly.
  * Hosted production requires a server-admin token until workspace auth lands.
  */
-export function requireProviderAdmin(request: NextRequest): Response | null {
+export function requireProviderAdmin(
+  request: NextRequest,
+  requestId: string,
+): Response | null {
   if (process.env.NODE_ENV !== 'production') return null;
 
   const expected = process.env.SCALEOS_ADMIN_TOKEN?.trim();
@@ -23,8 +26,9 @@ export function requireProviderAdmin(request: NextRequest): Response | null {
           message:
             'Provider credential changes are disabled in hosted mode. Configure provider keys as server environment variables or set SCALEOS_ADMIN_TOKEN.',
         },
+        requestId,
       },
-      { status: 403 },
+      { status: 403, headers: { 'x-request-id': requestId } },
     );
   }
 
@@ -37,8 +41,9 @@ export function requireProviderAdmin(request: NextRequest): Response | null {
           code: 'ADMIN_AUTH_REQUIRED',
           message: 'A valid ScaleOS admin token is required for provider credential changes.',
         },
+        requestId,
       },
-      { status: 401 },
+      { status: 401, headers: { 'x-request-id': requestId } },
     );
   }
 
