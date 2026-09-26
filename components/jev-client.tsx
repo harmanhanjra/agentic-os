@@ -194,7 +194,7 @@ export function JevClient() {
           <div className="mt-6 rounded-2xl border border-line bg-panel p-6 text-center" role="status">
             <h2 className="text-sm font-medium">Jev is not configured</h2>
             <p className="mx-auto mt-1.5 max-w-md text-xs leading-5 text-faint">
-              Set <span className="font-mono">EXPERIENTIAL_API_KEY</span> locally (server
+              Set <span className="font-mono">TYPESAFE_API_KEY</span> locally (server
               environment or <span className="font-mono">.env.local</span>) and restart. The key
               is never accepted through the UI or logs.
             </p>

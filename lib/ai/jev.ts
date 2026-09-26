@@ -9,9 +9,9 @@ import { ScaleOSError } from './types';
  * single non-streaming endpoint. This module is a thin native HTTP helper —
  * it never fabricates decisions and never acts on them.
  *
- * Gateway integration (overrides the vendor skill defaults):
- * - POST only to https://api.experientiallabs.ai/v1/systemone
- * - Bearer key read only from EXPERIENTIAL_API_KEY (server-side)
+ * Native TypeSafe API integration:
+ * - POST only to https://api.typesafe.ai/v1/systemone
+ * - Bearer key read only from TYPESAFE_API_KEY (server-side)
  * - Model sent exactly as "jev-latest"
  *
  * Admission bounds (platform bounds, enforced before any charged call):
@@ -21,7 +21,7 @@ import { ScaleOSError } from './types';
  * - roughly 32,000 input tokens shared by state + question definitions
  */
 
-export const JEV_GATEWAY_URL = 'https://api.experientiallabs.ai/v1/systemone';
+export const JEV_GATEWAY_URL = 'https://api.typesafe.ai/v1/systemone';
 export const JEV_MODEL = 'jev-latest';
 export const JEV_TIMEOUT_MS = 60_000;
 
@@ -109,11 +109,11 @@ export function estimateJevInputTokens(input: JevRequest): number {
 }
 
 function readJevKey(): string {
-  const key = process.env.EXPERIENTIAL_API_KEY?.trim();
+  const key = process.env.TYPESAFE_API_KEY?.trim();
   if (!key) {
     throw new ScaleOSError(
       'PROVIDER_NOT_CONFIGURED',
-      'Jev is not configured. Set EXPERIENTIAL_API_KEY locally (server environment or .env.local) and retry — the key is never accepted through the UI or logs.',
+      'Jev is not configured. Set TYPESAFE_API_KEY locally (server environment or .env.local) and retry — the key is never accepted through the UI or logs.',
     );
   }
   return key;
@@ -202,7 +202,7 @@ export async function requestJevDecision(input: JevRequest): Promise<JevDecision
     if (response.status === 401 || response.status === 403) {
       throw new ScaleOSError(
         'INVALID_API_KEY',
-        'The gateway rejected the EXPERIENTIAL_API_KEY. Check the server-side value and retry.',
+        'TypeSafe rejected TYPESAFE_API_KEY. Verify the server-side key in your TypeSafe account and retry.',
       );
     }
     throw new ScaleOSError(
@@ -226,5 +226,5 @@ export async function requestJevDecision(input: JevRequest): Promise<JevDecision
 
 /** Server-side configuration check that never exposes the key. */
 export function isJevConfigured(): boolean {
-  return Boolean(process.env.EXPERIENTIAL_API_KEY?.trim());
+  return Boolean(process.env.TYPESAFE_API_KEY?.trim());
 }

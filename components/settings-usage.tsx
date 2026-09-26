@@ -18,6 +18,10 @@ function UsageSummary() {
   const [providers, setProviders] = useState<StatusProvider[]>([]);
   const [modelCount, setModelCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [meter, setMeter] = useState<{
+    totals: { runs: number; errors: number; avgLatencyMs: number | null };
+    byKind: Record<string, { runs: number; errors: number; avgLatencyMs: number | null }>;
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -32,6 +36,12 @@ function UsageSummary() {
         setLoaded(true);
       })
       .catch(() => alive && setLoaded(true));
+    fetch('/api/usage', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (alive && body?.data) setMeter(body.data);
+      })
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -74,6 +84,28 @@ function UsageSummary() {
               {readyModels} of {modelCount} models ready
             </span>
             <span className="text-faint">{connected.map((p) => p.displayName).join(' · ')}</span>
+          </div>
+        )}
+        {meter && meter.totals.runs > 0 && (
+          <div className="mt-4 border-t border-line pt-4">
+            <p className="text-xs text-muted" role="status">
+              {meter.totals.runs} workspace runs
+              {meter.totals.errors > 0 ? ` · ${meter.totals.errors} failed` : ' · all succeeded'}
+              {typeof meter.totals.avgLatencyMs === 'number'
+                ? ` · avg ${(meter.totals.avgLatencyMs / 1000).toFixed(1)}s`
+                : ''}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(meter.byKind).map(([kind, stats]) => (
+                <span
+                  key={kind}
+                  className="rounded-full border border-line bg-canvas px-2.5 py-1 font-mono text-[10px] text-faint"
+                  title={`${stats.errors} failed`}
+                >
+                  {kind} · {stats.runs}
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>

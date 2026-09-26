@@ -44,9 +44,20 @@
 - [x] Browser action policy blocking consequential side effects until explicit approvals exist.
 - [x] Computer Use API + isolated desktop-worker contract.
 - [x] `/computer` mission UI with readiness, traces, extraction, and screenshot evidence.
-- [ ] Visual/pixel fallback when DOM semantics are insufficient.
-- [ ] Permission kernel with signed approval checkpoints for consequential actions.
+- [x] Visual/pixel fallback when DOM semantics are insufficient.
+- [x] Permission kernel with signed approval checkpoints for consequential actions.
 - [ ] Workspace authentication and PostgreSQL persistence.
-- [ ] Durable agent runs, memory, budgets, and cancellation.
-- [ ] Permissioned tool registry with approval gates and audit log.
-- [ ] Workflow execution, scheduling, and background workers.
+- [x] Durable agent runs and run history (live cancellation, long-term memory, and budgets remain future).
+- [x] Permissioned tool registry with approval gates and audit log.
+- [x] Workflow execution via the server-side flow runner (scheduling and background workers remain future).
+
+## V0.4 delivered (this pass)
+- [x] Unified API envelope (`lib/api/envelope.ts`) with request IDs on every response.
+- [x] Permission kernel: HMAC-signed single-use approvals, 15-min TTL, `/api/approvals/*`, approve/deny/resume UI in `/computer`.
+- [x] Browser `awaiting_approval` status, approval-token resume, visual-fallback evidence signal.
+- [x] Allowlisted tool registry + audited `/api/tools` (calculator has no code execution).
+- [x] Durable run history (`/api/runs`) + recent-runs UI in `/agents`.
+- [x] Server-side flow runner (`/api/flows/run`) with per-step results + metering.
+- [x] Local usage metering (`/api/usage`) wired into Settings.
+- [x] Hardened security headers (CORP, X-Permitted-Cross-Domain-Policies, HSTS).
+- [x] 75 tests green (10 new: kernel, tools, flows, runs, usage, envelope), typecheck + production build green.

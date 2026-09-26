@@ -3,6 +3,9 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { runBrowserAgent } from '@/lib/computer/browser-agent';
 import { ScaleOSError } from '@/lib/ai/types';
+import { fail, ok, statusFor } from '@/lib/api/envelope';
+import { recordUsage } from '@/lib/usage/meter';
+import { saveRun } from '@/lib/runs/store';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
@@ -14,68 +17,61 @@ const RequestSchema = z.object({
   modelId: z.string().min(1).max(300).optional(),
   maxActions: z.number().int().min(1).max(20).default(10),
   includeScreenshot: z.boolean().default(true),
+  approvalTokens: z.array(z.string().min(1).max(2000)).max(10).optional(),
 });
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
+  const started = Date.now();
   const rate = checkRateLimit(request, 'browser-use', 4, 60_000);
   if (!rate.allowed) {
-    return Response.json(
-      {
-        error: { code: 'RATE_LIMITED', message: 'Too many browser runs. Try again shortly.' },
-        requestId,
-      },
-      {
-        status: 429,
-        headers: { 'x-request-id': requestId, ...rateLimitHeaders(rate) },
-      },
-    );
+    return fail('RATE_LIMITED', 'Too many browser runs. Try again shortly.', 429, requestId, rateLimitHeaders(rate));
   }
 
   const parsed = RequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return Response.json(
-      {
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Provide a browser objective, optional HTTP(S) start URL, and a valid action budget.',
-        },
-        requestId,
-      },
-      { status: 422, headers: { 'x-request-id': requestId } },
-    );
+    return fail('VALIDATION_ERROR', 'Provide a browser objective, optional HTTP(S) start URL, and a valid action budget.', 422, requestId);
   }
 
   try {
-    const result = await runBrowserAgent(parsed.data);
-    return Response.json(
-      { data: result, requestId },
-      { headers: { 'x-request-id': requestId } },
-    );
+    const result = await runBrowserAgent({ ...parsed.data, signal: request.signal });
+    recordUsage({
+      kind: 'browser',
+      model: result.model,
+      latencyMs: Date.now() - started,
+      requestId,
+      ok: result.status === 'completed',
+      ...(result.status === 'completed' ? {} : { errorCode: `BROWSER_${result.status.toUpperCase()}` }),
+    });
+    saveRun({
+      runId: result.runId,
+      kind: 'browser',
+      createdAt: new Date().toISOString(),
+      objective: result.objective.slice(0, 2000),
+      model: result.model,
+      status: result.status,
+      summary: result.summary.slice(0, 2000),
+      latencyMs: result.latencyMs,
+      requestId,
+      result,
+    });
+    return ok({ run: result, data: result }, requestId, rateLimitHeaders(rate));
   } catch (error) {
+    recordUsage({
+      kind: 'browser',
+      latencyMs: Date.now() - started,
+      requestId,
+      ok: false,
+      errorCode: error instanceof ScaleOSError ? error.code : 'BROWSER_RUN_FAILED',
+    });
     if (error instanceof ScaleOSError) {
-      const status =
-        error.code === 'MODEL_NOT_FOUND'
-          ? 404
-          : error.code === 'RATE_LIMITED'
-            ? 429
-            : error.code === 'PROVIDER_NOT_CONFIGURED' ||
-                error.code === 'MODEL_UNAVAILABLE'
-              ? 503
-              : 502;
-      return Response.json(
-        { error: { code: error.code, message: error.message }, requestId },
-        { status, headers: { 'x-request-id': requestId } },
-      );
+      return fail(error.code, error.message, statusFor(error.code), requestId);
     }
 
     const message =
       error instanceof Error && process.env.NODE_ENV !== 'production'
         ? error.message
         : 'Browser Use could not complete the run.';
-    return Response.json(
-      { error: { code: 'BROWSER_RUN_FAILED', message }, requestId },
-      { status: 502, headers: { 'x-request-id': requestId } },
-    );
+    return fail('BROWSER_RUN_FAILED', message, 502, requestId);
   }
 }

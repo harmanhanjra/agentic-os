@@ -19,7 +19,7 @@ const RequestSchema = z.object({
 
 /**
  * Configuration probe without secrets: tells the Jev tab whether the
- * server-side EXPERIENTIAL_API_KEY is present. Never returns the key.
+ * server-side TYPESAFE_API_KEY is present. Never returns the key.
  */
 export async function GET() {
   const requestId = randomUUID();
@@ -30,7 +30,7 @@ export async function GET() {
         model: 'jev-latest',
         hint: isJevConfigured()
           ? null
-          : 'Set EXPERIENTIAL_API_KEY locally (server environment or .env.local).',
+          : 'Set TYPESAFE_API_KEY locally (server environment or .env.local).',
       },
       requestId,
     },

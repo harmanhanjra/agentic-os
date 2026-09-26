@@ -10,7 +10,7 @@ import {
 } from '../lib/ai/judge';
 import { JEV_GATEWAY_URL, JEV_MODEL } from '../lib/ai/jev';
 
-const KEY = 'EXPERIENTIAL_API_KEY';
+const KEY = 'TYPESAFE_API_KEY';
 const SECRET = 'test-experiential-key-1234567890';
 
 const answers = [

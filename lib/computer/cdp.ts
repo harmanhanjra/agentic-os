@@ -17,13 +17,13 @@ interface CdpMessage {
   sessionId?: string;
 }
 
-async function assertSafeCdpEndpoint(raw: string): Promise<URL> {
+async function assertSafeCdpEndpoint(raw: string, allowPrivateEndpoint = false): Promise<URL> {
   const url = new URL(raw);
   if (!['http:', 'https:', 'ws:', 'wss:'].includes(url.protocol)) {
     throw new Error('BROWSER_CDP_URL must use HTTP(S) or WS(S).');
   }
 
-  const allowPrivate =
+  const allowPrivate = allowPrivateEndpoint ||
     process.env.NODE_ENV !== 'production' &&
     process.env.SCALEOS_BROWSER_ALLOW_PRIVATE === 'true';
 
@@ -41,13 +41,13 @@ async function assertSafeCdpEndpoint(raw: string): Promise<URL> {
   return url;
 }
 
-async function resolveWebSocketEndpoint(raw: string): Promise<string> {
-  const url = await assertSafeCdpEndpoint(raw);
+async function resolveWebSocketEndpoint(raw: string, allowPrivateEndpoint = false): Promise<string> {
+  const url = await assertSafeCdpEndpoint(raw, allowPrivateEndpoint);
   if (url.protocol === 'ws:' || url.protocol === 'wss:') return url.toString();
 
   const versionUrl = new URL(url.toString());
   versionUrl.pathname = versionUrl.pathname.replace(/\/$/, '') + '/json/version';
-  const allowPrivate =
+  const allowPrivate = allowPrivateEndpoint ||
     process.env.NODE_ENV !== 'production' &&
     process.env.SCALEOS_BROWSER_ALLOW_PRIVATE === 'true';
   const response = await safeProviderFetch(
@@ -58,7 +58,7 @@ async function resolveWebSocketEndpoint(raw: string): Promise<string> {
   if (!response.ok) throw new Error('CDP endpoint did not expose /json/version.');
   const body = (await response.json()) as { webSocketDebuggerUrl?: string };
   if (!body.webSocketDebuggerUrl) throw new Error('CDP endpoint did not return a browser WebSocket URL.');
-  await assertSafeCdpEndpoint(body.webSocketDebuggerUrl);
+  await assertSafeCdpEndpoint(body.webSocketDebuggerUrl, allowPrivateEndpoint);
   return body.webSocketDebuggerUrl;
 }
 
@@ -91,8 +91,8 @@ export class CdpBrowser {
     });
   }
 
-  static async connect(endpoint: string): Promise<CdpBrowser> {
-    const wsUrl = await resolveWebSocketEndpoint(endpoint);
+  static async connect(endpoint: string, options: { allowPrivateEndpoint?: boolean } = {}): Promise<CdpBrowser> {
+    const wsUrl = await resolveWebSocketEndpoint(endpoint, options.allowPrivateEndpoint);
     const socket = new WebSocket(wsUrl);
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Timed out connecting to browser CDP.')), 8000);
@@ -331,6 +331,15 @@ export class CdpBrowser {
     }
     this.pending.clear();
     this.socket.close();
+  }
+
+  abort() {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(new DOMException('Browser task was stopped.', 'AbortError'));
+    }
+    this.pending.clear();
+    if (this.socket.readyState < WebSocket.CLOSING) this.socket.close();
   }
 }
 

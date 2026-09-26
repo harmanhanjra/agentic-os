@@ -9,6 +9,7 @@ import {
   readPairVerdict,
 } from '@/lib/ai/judge';
 import { isJevConfigured, requestJevDecision } from '@/lib/ai/jev';
+import { recordUsage } from '@/lib/usage/meter';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
         error: {
           code: 'PROVIDER_NOT_CONFIGURED',
           message:
-            'Jev judging is on, but Jev is not configured. Set EXPERIENTIAL_API_KEY locally (server environment or .env.local) and retry.',
+            'Jev judging is on, but Jev is not configured. Set TYPESAFE_API_KEY locally (server environment or .env.local) and retry.',
         },
         requestId,
       },
@@ -177,6 +178,14 @@ const fulfilled = settled
     }
   }
 
+  recordUsage({
+    kind: 'arena',
+    latencyMs: Date.now() - started,
+    requestId,
+    ok: fulfilled.length > 0,
+    ...(fulfilled.length > 0 ? {} : { errorCode: 'ARENA_ALL_FAILED' }),
+  });
+
   return Response.json(
     {
       data: results,
@@ -184,6 +193,6 @@ const fulfilled = settled
       latencyMs: Date.now() - started,
       requestId,
     },
-    { headers: { 'x-request-id': requestId } },
+    { headers: { 'x-request-id': requestId, ...rateLimitHeaders(rate) } },
   );
 }

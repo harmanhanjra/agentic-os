@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Bot, LoaderCircle, Play, RotateCcw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Bot, History, LoaderCircle, Play, RotateCcw } from 'lucide-react';
 
 interface AgentRun {
   runId: string;
@@ -17,12 +17,42 @@ interface AgentRun {
   latencyMs: number;
 }
 
+interface HistoryRun {
+  runId: string;
+  kind: string;
+  createdAt: string;
+  objective: string;
+  model?: string;
+  status: string;
+  latencyMs?: number;
+}
+
 export function AgentsClient() {
   const [objective, setObjective] = useState('');
   const [maxSteps, setMaxSteps] = useState(3);
   const [busy, setBusy] = useState(false);
   const [run, setRun] = useState<AgentRun | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryRun[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch('/api/runs', { cache: 'no-store' });
+      const body = await response.json().catch(() => null);
+      const runs = (body?.data?.runs ?? []) as HistoryRun[];
+      setHistory(runs.filter((r) => r.kind === 'agent').slice(0, 10));
+    } catch {
+      /* history is best-effort */
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadHistory();
+  }, []);
 
   const start = async () => {
     const value = objective.trim();
@@ -44,11 +74,12 @@ export function AgentsClient() {
         );
         return;
       }
-      setRun(body.data);
+      setRun(body.data ?? body.run);
     } catch {
       setError('Network error while starting the agent.');
     } finally {
       setBusy(false);
+      void loadHistory();
     }
   };
 
@@ -158,6 +189,33 @@ export function AgentsClient() {
           </div>
         </div>
       )}
+
+      <div className="mt-6 rounded-2xl border border-line bg-panel p-5">
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          <History size={14} aria-hidden className="text-accent" /> Recent runs
+        </h2>
+        {historyLoading ? (
+          <p className="mt-2 text-xs text-faint" role="status">Loading run history…</p>
+        ) : history.length === 0 ? (
+          <p className="mt-2 text-xs leading-5 text-faint">
+            No agent runs yet — completed runs are recorded on this workspace automatically.
+          </p>
+        ) : (
+          <ol className="mt-3 space-y-2">
+            {history.map((h) => (
+              <li key={h.runId} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-line bg-canvas px-3 py-2.5">
+                <span className="min-w-0 flex-1 truncate text-xs text-muted" title={h.objective}>
+                  {h.objective}
+                </span>
+                <span className="font-mono text-[10px] text-faint">
+                  {h.status}
+                  {typeof h.latencyMs === 'number' ? ` · ${(h.latencyMs / 1000).toFixed(1)}s` : ''}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }

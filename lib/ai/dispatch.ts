@@ -106,6 +106,7 @@ export async function postChatCompletions(
   target: ResolvedTarget,
   messages: ChatMessage[],
   stream: boolean,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const { url, apiKey, allowLocal } = endpointFor(target.providerId);
   const headers: Record<string, string> = { 'content-type': 'application/json' };
@@ -121,11 +122,12 @@ export async function postChatCompletions(
           messages,
           stream,
         }),
-        signal: AbortSignal.timeout(120_000),
+        signal: signal ? AbortSignal.any([AbortSignal.timeout(120_000), signal]) : AbortSignal.timeout(120_000),
       },
       allowLocal,
     );
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? error;
     throw new ScaleOSError('NETWORK_ERROR', 'Could not safely reach the provider.');
   }
 }

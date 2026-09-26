@@ -11,8 +11,8 @@ import {
 } from '../lib/ai/jev';
 import { ScaleOSError } from '../lib/ai/types';
 
-const KEY = 'EXPERIENTIAL_API_KEY';
-const SECRET = 'test-experiential-key-1234567890';
+const KEY = 'TYPESAFE_API_KEY';
+const SECRET = 'test-typesafe-key-1234567890';
 
 function choiceRequest(): JevRequest {
   return {
@@ -73,6 +73,7 @@ describe('jev decision helper', () => {
 
     expect(seen).toHaveLength(1);
     expect(seen[0].url).toBe(JEV_GATEWAY_URL);
+    expect(seen[0].url).toBe('https://api.typesafe.ai/v1/systemone');
     expect(seen[0].init.method).toBe('POST');
     const headers = seen[0].init.headers as Record<string, string>;
     expect(headers.authorization).toBe(`Bearer ${SECRET}`);
