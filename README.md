@@ -17,9 +17,13 @@ output — unconfigured routers report honest errors with request IDs.
   copy, tables, quotes), copy / regenerate / retry per message, model +
   latency + request-ID footers, and a model switcher with live
   Ready / Needs-key state.
-- **Agents** — bounded planner → executor → synthesizer runs with 1–5 steps, request IDs, and rate limits.
+- **Agents** — bounded planner → executor → synthesizer runs with 1–5 steps, request IDs, rate limits, durable run history (`/api/runs`), and recent-runs UI.
+- **Flows** — server-side Input → Prompt → Model → Output runner (`/api/flows/run`) with per-step results, usage metering, and run history.
+- **Tools** — allowlisted local tool registry (`/api/tools`: web_fetch, calculator, datetime, text_stats) with SSRF-safe fetch, no code execution, and an audit log.
+- **Usage metering** — every chat/arena/agent/browser/computer/flow/image/tool call is recorded locally and summarized in Settings (`/api/usage`).
 - **Browser Use V0.3 alpha** — autonomous DOM-first web operation through Chrome DevTools Protocol, semantic element references, action batching, extraction, screenshot evidence, URL safety checks, action budgets, and hard policy gates for consequential actions.
-- **Full Computer Use V0.3 alpha** — vision-driven screenshot → action → re-observe loop with an isolated desktop worker that can move/click/drag the mouse, scroll, type, use hotkeys, press keys, and return screenshot evidence without exposing shell access.
+- **Permission kernel** — consequential browser actions pause into signed single-use approval checkpoints (`/api/approvals/*`) with approve/deny/resume in `/computer`; approvals expire in 15 minutes and cannot be replayed.
+- **Computer Use V0.3 alpha** — delegates desktop objectives to an isolated permissioned worker instead of exposing shell/OS privileges to the Next.js control plane.
 - **Model Arena** — run one prompt across 2–4 models concurrently with
   per-model latency, provider tags, and honest per-model failure states.
 - **Providers control plane** (`/settings`) — add keys without restarts,
@@ -60,6 +64,7 @@ auto-routing light up immediately.
 |---|---|
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` | OpenAI router (default base `https://api.openai.com/v1`) |
 | `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` | NVIDIA NIM open models (default `https://integrate.api.nvidia.com/v1`) |
+| `TYPESAFE_API_KEY` | TypeSafe Jev decisions via `https://api.typesafe.ai/v1/systemone` |
 | `ANTHROPIC_API_KEY` | Anthropic (dedicated adapter ships next; use the LiteLLM gateway meanwhile) |
 | `OLLAMA_BASE_URL` | Local Ollama, no key (default `http://localhost:11434/v1`) |
 | `LITELLM_BASE_URL` / `LITELLM_MASTER_KEY` | LiteLLM gateway for 100+ routers, addressed as `litellm:<model-id>` |
@@ -68,7 +73,8 @@ auto-routing light up immediately.
 | `SCALEOS_DATA_DIR` | Credential store location (default `./data`, gitignored) |
 | `SCALEOS_SKILLS_DIRS` | Extra skill directories (delimiter-separated) |
 | `DATABASE_URL` / `AUTH_SECRET` | Reserved for the PostgreSQL/auth slice |
-| `BROWSER_CDP_URL` | Chrome DevTools Protocol endpoint used by Browser Use |
+| `BROWSER_CDP_URL` | Optional Chrome DevTools Protocol endpoint used by Browser Use; local development starts a disposable headless browser when unavailable |
+| `CHROME_EXECUTABLE_PATH` | Optional local Chrome/Chromium/Edge executable path for development browser automation |
 | `SCALEOS_BROWSER_ALLOW_PRIVATE` | Local-development-only opt-in for private/local browser targets |
 | `SCALEOS_COMPUTER_WORKER_URL` | Isolated desktop worker endpoint for Computer Use |
 | `SCALEOS_COMPUTER_WORKER_TOKEN` | Bearer token shared with the desktop worker |\n| `SCALEOS_COMPUTER_ALLOW_PRIVATE` | Development-only opt-in for a localhost/private desktop worker |
@@ -85,6 +91,13 @@ Pages: `/` (workspace home) · `/chat` · `/agents` · `/computer` · `/arena` �
 |---|---|---|
 | `/api/chat` | POST | Streaming chat completions (OpenAI-compatible dispatch) |
 | `/api/agents/run` | POST | Bounded planner/executor/synthesizer agent run |
+| `/api/runs` | GET | Durable run history (agents, browser, computer, flows) |
+| `/api/flows/run` | POST | Server-side flow runner with per-step results |
+| `/api/tools` | GET/POST | Allowlisted tool inventory + audited tool execution |
+| `/api/usage` | GET | Local usage metering summary by kind |
+| `/api/approvals` | GET | Permission checkpoint history (tokens never exposed) |
+| `/api/approvals/request` | POST | Mint a consequential-action approval checkpoint |
+| `/api/approvals/decide` | POST | Approve (issues single-use token) or deny |
 | `/api/computer/status` | GET | Browser/desktop execution readiness without exposing endpoints or tokens |
 | `/api/computer/browser/run` | POST | Autonomous DOM-first Browser Use run |
 | `/api/computer/run` | POST | Permissioned desktop Computer Use run |
@@ -115,7 +128,14 @@ pnpm build       # production build
 app/            # routes, pages, API handlers (server-only secrets stay here)
 components/     # client UI (shell, chat, arena, providers, skills, markdown)
 lib/ai/         # provider catalog, registry, routing, dispatch (contracts first)
+lib/api/        # unified success/error envelope with request IDs
 lib/security/   # AES-GCM crypto, SSRF-safe URLs, encrypted credential store
+lib/permissions/# HMAC-signed single-use approval kernel
+lib/tools/      # allowlisted local tools + audit log
+lib/runs/       # durable run history (file-backed, PostgreSQL-ready shape)
+lib/flows/      # server-side flow execution engine
+lib/usage/      # local usage metering + summaries
+lib/store/      # file-backed JSON collections (PostgreSQL-ready boundary)
 lib/skills/     # host skill scanner + chat context builder
 lib/chat/       # conversation persistence (localStorage slice, DB-ready shape)
 lib/computer/   # CDP browser driver + vision desktop agent + worker client + safety policies\ncomputer_worker/ # real Python desktop worker (screen, mouse, keyboard, virtual CI backend)
@@ -125,12 +145,20 @@ docs/           # architecture + provider adapter notes
 
 ## Security model
 
-Inputs are validated at boundaries with Zod; credentials are encrypted at rest and masked in every UI response; provider and browser URL targets are checked before dispatch and after DNS resolution; redirects are blocked at provider boundaries; plaintext secrets never reach the client; and model output is escaped before controlled markdown tags are injected. Browser/Computer Use applies action budgets and blocks financial, destructive, credential, upload, account, and external-communication side effects until the permission kernel can require explicit approval. In hosted production, provider credential mutations require `SCALEOS_ADMIN_TOKEN` until workspace authentication replaces this temporary admin boundary.
+Inputs are validated at boundaries with Zod; credentials are encrypted at rest and masked in every UI response; provider and browser URL targets are checked before dispatch and after DNS resolution; redirects are blocked at provider boundaries; plaintext secrets never reach the client; and model output is escaped before controlled markdown tags are injected. Browser/Computer Use applies action budgets and pauses financial, destructive, credential, upload, account, and external-communication side effects into signed single-use approval checkpoints (15-minute TTL, HMAC with `CREDENTIAL_ENCRYPTION_KEY`/`AUTH_SECRET`, deny-by-default). Local tools run from a fixed allowlist with no code execution and every invocation is audit-logged. In hosted production, provider credential mutations require `SCALEOS_ADMIN_TOKEN` until workspace authentication replaces this temporary admin boundary.
 
 ## Known limitations & roadmap
 
-Workspace auth, PostgreSQL repositories, durable agent memory, signed approval checkpoints for consequential actions, usage charts, and attachments/storage are upcoming vertical slices. Browser Use requires a configured CDP endpoint. Full Computer Use now ships with the real `computer_worker` service; local operation requires starting that worker and connecting a configured vision-capable model. Kimi K3 and other heavyweight
+Workspace auth, PostgreSQL repositories, durable agent memory, visual browser fallback, usage charts, and attachments/storage are upcoming vertical slices. In local development Browser Use can launch a fresh headless browser with a temporary profile; production requires an explicitly configured CDP endpoint. Desktop Computer Use requires an isolated worker. Kimi K3 and other heavyweight
 reasoning models currently exceed the 120s upstream budget on trial-tier
 keys — tracked as a follow-up (longer budgets / reasoning params / paid
 tier). The UI exposes no fake success state; unavailable integrations
 remain explicit empty states.
+
+## Isolated desktop worker
+
+The reconciled branch includes the vision-driven desktop loop and the Python
+`computer_worker` service from the remote branch. See [worker setup](computer_worker/README.md)
+and [Computer Use architecture](docs/computer-use.md). Desktop operation requires
+an explicitly configured worker and a vision-capable provider; it is not implied
+by a successful workspace build. Local usage metering and run history are retained.

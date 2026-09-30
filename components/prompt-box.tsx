@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, PenLine } from 'lucide-react';
 import { developmentModels } from '@/lib/ai/registry';
 import { CapabilityBadges } from './model-menu';
 import { AUTO_ID } from './use-registry';
@@ -75,7 +75,7 @@ export function PromptBox({ modelId }: { modelId: string }) {
           aria-hidden
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-raised text-muted"
         >
-          ✎
+          <PenLine size={15} />
         </span>
       </div>
 

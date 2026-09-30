@@ -85,6 +85,16 @@ export const providers: ProviderDef[] = [
     local: false,
     setupHint: 'Point LITELLM_BASE_URL at your gateway for 100+ routers.',
   },
+  {
+    id: 'experiential',
+    displayName: 'Experiential',
+    kind: 'openai-compatible',
+    keyEnv: 'EXPLABS_API_KEY',
+    baseEnv: 'EXPLABS_BASE_URL',
+    defaultBaseURL: 'https://api.experientiallabs.ai/v1',
+    local: false,
+    setupHint: 'Set EXPLABS_API_KEY server-side to route models through the Experiential gateway.',
+  },
 ];
 
 export function getProvider(id: string): ProviderDef | undefined {

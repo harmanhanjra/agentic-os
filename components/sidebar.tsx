@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Monitor,
   Puzzle,
+  Scale,
   Settings2,
   Sparkles,
   Workflow,
@@ -32,6 +33,7 @@ export const workspaceNav: NavEntry[] = [
   { label: 'Agents', icon: Bot, href: '/agents' },
   { label: 'Computer Use', icon: Monitor, href: '/computer' },
   { label: 'Flows', icon: Workflow, href: '/flows' },
+  { label: 'Jev', icon: Scale, href: '/jev' },
   { label: 'Files', icon: Boxes, soon: true },
 ];
 

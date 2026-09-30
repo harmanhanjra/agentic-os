@@ -1,9 +1,12 @@
+import { runComputerAgent } from '@/lib/computer/desktop-agent';
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { ScaleOSError } from '@/lib/ai/types';
-import { runComputerAgent } from '@/lib/computer/desktop-agent';
 import { computerWorkerConfigured } from '@/lib/computer/worker';
+import { fail, ok, statusFor } from '@/lib/api/envelope';
+import { ScaleOSError } from '@/lib/ai/types';
+import { recordUsage } from '@/lib/usage/meter';
+import { saveRun } from '@/lib/runs/store';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
@@ -18,83 +21,57 @@ const RequestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
-  const rate = checkRateLimit(request, 'computer-use', 3, 60_000);
+  const started = Date.now();
+  const rate = checkRateLimit(request, 'computer-use', 4, 60_000);
   if (!rate.allowed) {
-    return Response.json(
-      {
-        error: { code: 'RATE_LIMITED', message: 'Too many computer runs. Try again shortly.' },
-        requestId,
-      },
-      {
-        status: 429,
-        headers: { 'x-request-id': requestId, ...rateLimitHeaders(rate) },
-      },
-    );
+    return fail('RATE_LIMITED', 'Too many computer runs. Try again shortly.', 429, requestId, rateLimitHeaders(rate));
   }
 
   const parsed = RequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return Response.json(
-      {
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Provide a computer objective, optional vision model, and valid action budget.',
-        },
-        requestId,
-      },
-      { status: 422, headers: { 'x-request-id': requestId } },
-    );
+    return fail('VALIDATION_ERROR', 'Provide a computer objective and valid action budget.', 422, requestId);
   }
 
   if (!computerWorkerConfigured()) {
-    return Response.json(
-      {
-        error: {
-          code: 'COMPUTER_WORKER_NOT_CONFIGURED',
-          message:
-            'Full Computer Use requires SCALEOS_COMPUTER_WORKER_URL and a running computer_worker service.',
-        },
-        requestId,
-      },
-      { status: 503, headers: { 'x-request-id': requestId } },
+    return fail(
+      'COMPUTER_WORKER_NOT_CONFIGURED',
+      'Desktop Computer Use requires SCALEOS_COMPUTER_WORKER_URL. Browser Use works independently through BROWSER_CDP_URL.',
+      503,
+      requestId,
     );
   }
 
   try {
     const result = await runComputerAgent(parsed.data);
-    return Response.json(
-      { data: result, requestId },
-      { headers: { 'x-request-id': requestId } },
-    );
+    recordUsage({ kind: 'computer', latencyMs: Date.now() - started, requestId,
+      ok: result.status === 'completed',
+      ...(result.status === 'completed' ? {} : { errorCode: `COMPUTER_${result.status.toUpperCase()}` }),
+    });
+    saveRun({
+      runId: (typeof result.runId === 'string' && result.runId) || requestId,
+      kind: 'computer',
+      createdAt: new Date().toISOString(),
+      objective: parsed.data.objective.slice(0, 2000),
+      status: typeof result.status === 'string' ? result.status : 'completed',
+      summary: typeof result.summary === 'string' ? result.summary.slice(0, 2000) : undefined,
+      latencyMs: Date.now() - started,
+      requestId,
+      result,
+    });
+    return ok(result, requestId, rateLimitHeaders(rate));
   } catch (error) {
+    recordUsage({ kind: 'computer', latencyMs: Date.now() - started, requestId, ok: false,
+      errorCode: error instanceof ScaleOSError ? error.code : 'COMPUTER_RUN_FAILED' });
     if (error instanceof ScaleOSError) {
-      const status =
-        error.code === 'MODEL_NOT_FOUND'
-          ? 404
-          : error.code === 'RATE_LIMITED'
-            ? 429
-            : error.code === 'MODEL_UNAVAILABLE' ||
-                error.code === 'PROVIDER_NOT_CONFIGURED'
-              ? 503
-              : 502;
-      return Response.json(
-        { error: { code: error.code, message: error.message }, requestId },
-        { status, headers: { 'x-request-id': requestId } },
-      );
+      return fail(error.code, error.message, statusFor(error.code), requestId);
     }
-
-    return Response.json(
-      {
-        error: {
-          code: 'COMPUTER_RUN_FAILED',
-          message:
-            error instanceof Error && process.env.NODE_ENV !== 'production'
-              ? error.message
-              : 'Full Computer Use could not complete the run.',
-        },
-        requestId,
-      },
-      { status: 502, headers: { 'x-request-id': requestId } },
+    return fail(
+      'COMPUTER_RUN_FAILED',
+      error instanceof Error && process.env.NODE_ENV !== 'production'
+        ? error.message
+        : 'Computer Use worker could not complete the run.',
+      502,
+      requestId,
     );
   }
 }

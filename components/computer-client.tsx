@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 interface StatusPayload {
-  browser: { configured: boolean; reachable: boolean; mode: string };
+  browser: { configured: boolean; reachable: boolean; launchable?: boolean; mode: string };
   computer: {
     configured: boolean;
     reachable: boolean;
@@ -28,13 +28,21 @@ interface StatusPayload {
 
 interface BrowserRun {
   runId: string;
-  status: 'completed' | 'blocked' | 'max_actions' | 'failed';
+  status: 'completed' | 'blocked' | 'awaiting_approval' | 'max_actions' | 'failed';
   model: string;
   finalUrl: string;
   finalTitle: string;
   summary: string;
   latencyMs: number;
   screenshotDataUrl?: string;
+  visualFallback?: boolean;
+  pendingApproval?: {
+    id: string;
+    risk: string;
+    action: string;
+    detail: string;
+    expiresAt: string;
+  };
   actions: Array<{
     index: number;
     action: { type: string; [key: string]: unknown };
@@ -93,6 +101,7 @@ export function ComputerClient() {
   const [browserBusy, setBrowserBusy] = useState(false);
   const [browserError, setBrowserError] = useState<string | null>(null);
   const [browserRun, setBrowserRun] = useState<BrowserRun | null>(null);
+  const [approvalBusy, setApprovalBusy] = useState(false);
 
   const [computerObjective, setComputerObjective] = useState('');
   const [computerActions, setComputerActions] = useState(15);
@@ -117,11 +126,11 @@ export function ComputerClient() {
     void loadStatus();
   }, []);
 
-  const runBrowser = async () => {
+  const runBrowser = async (resumeTokens?: string[]) => {
     if (!browserObjective.trim() || browserBusy) return;
     setBrowserBusy(true);
     setBrowserError(null);
-    setBrowserRun(null);
+    if (!resumeTokens) setBrowserRun(null);
     try {
       const response = await fetch('/api/computer/browser/run', {
         method: 'POST',
@@ -131,6 +140,7 @@ export function ComputerClient() {
           ...(startUrl.trim() ? { startUrl: startUrl.trim() } : {}),
           maxActions: browserActions,
           includeScreenshot: true,
+          ...(resumeTokens?.length ? { approvalTokens: resumeTokens } : {}),
         }),
       });
       const body = await response.json().catch(() => null);
@@ -141,11 +151,42 @@ export function ComputerClient() {
         );
         return;
       }
-      setBrowserRun(body.data);
+      setBrowserRun(body.data ?? body.run);
     } catch {
       setBrowserError('Network error while running Browser Use.');
     } finally {
       setBrowserBusy(false);
+    }
+  };
+
+  const decideApproval = async (id: string, decision: 'approved' | 'denied') => {
+    setApprovalBusy(true);
+    setBrowserError(null);
+    try {
+      const response = await fetch('/api/approvals/decide', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, decision }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        setBrowserError(body?.error?.message ?? 'Approval decision failed.');
+        return;
+      }
+      if (decision === 'denied') {
+        setBrowserRun((prev) =>
+          prev ? { ...prev, status: 'blocked', pendingApproval: undefined } : prev,
+        );
+        return;
+      }
+      const token = body?.data?.approval?.token as string | undefined;
+      if (token) {
+        await runBrowser([token]);
+      }
+    } catch {
+      setBrowserError('Network error while deciding the approval.');
+    } finally {
+      setApprovalBusy(false);
     }
   };
 
@@ -207,10 +248,12 @@ export function ComputerClient() {
 
       <div className="mt-6 flex flex-wrap gap-2">
         <ReadyBadge
-          ready={Boolean(status?.browser.reachable)}
+          ready={Boolean(status?.browser.reachable || status?.browser.launchable)}
           label={
             status?.browser.reachable
               ? 'Browser worker ready'
+              : status?.browser.launchable
+                ? 'Isolated browser starts on demand'
               : status?.browser.configured
                 ? 'Browser configured · unreachable'
                 : 'Browser not configured'
@@ -283,11 +326,11 @@ export function ComputerClient() {
             </label>
             <button
               type="button"
-              onClick={runBrowser}
+              onClick={() => void runBrowser()}
               disabled={
                 browserBusy ||
                 browserObjective.trim().length < 3 ||
-                !status?.browser.reachable
+                !(status?.browser.reachable || status?.browser.launchable)
               }
               className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-ink transition hover:bg-accent-hover disabled:opacity-40"
             >
@@ -436,6 +479,43 @@ export function ComputerClient() {
           </div>
 
           <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted">{browserRun.summary}</p>
+
+          {browserRun.visualFallback && (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-canvas px-2.5 py-1 text-[10px] text-faint">
+              Visual evidence mode — page DOM was sparse, screenshot is the primary record
+            </p>
+          )}
+
+          {browserRun.status === 'awaiting_approval' && browserRun.pendingApproval && (
+            <div className="mt-4 rounded-xl border border-focus/50 bg-canvas p-4" role="alert">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
+                <ShieldCheck size={13} aria-hidden /> Permission checkpoint
+              </p>
+              <p className="mt-2 text-sm font-medium">{browserRun.pendingApproval.action}</p>
+              <p className="mt-1 text-xs leading-5 text-muted">{browserRun.pendingApproval.detail}</p>
+              <p className="mt-1 font-mono text-[10px] text-faint">
+                risk: {browserRun.pendingApproval.risk} · expires {new Date(browserRun.pendingApproval.expiresAt).toLocaleTimeString()}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={approvalBusy || browserBusy}
+                  onClick={() => void decideApproval(browserRun.pendingApproval!.id, 'approved')}
+                  className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-ink transition hover:bg-accent-hover disabled:opacity-40"
+                >
+                  {approvalBusy ? 'Deciding…' : 'Approve & resume'}
+                </button>
+                <button
+                  type="button"
+                  disabled={approvalBusy || browserBusy}
+                  onClick={() => void decideApproval(browserRun.pendingApproval!.id, 'denied')}
+                  className="rounded-lg border border-line px-4 py-2 text-xs text-muted transition hover:border-line-strong hover:text-ink disabled:opacity-40"
+                >
+                  Deny
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.1fr]">
             <div>

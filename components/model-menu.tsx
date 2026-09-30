@@ -130,7 +130,11 @@ export function ModelMenu({
       </button>
 
       {open && (
-        <div className="absolute left-0 z-30 mt-2 max-h-96 w-80 overflow-y-auto rounded-xl border border-line-strong bg-panel p-2 shadow-2xl">
+        <div
+          role="listbox"
+          aria-label="Available models"
+          className="absolute left-0 z-30 mt-2 max-h-96 w-80 overflow-y-auto rounded-xl border border-line-strong bg-panel p-2 shadow-2xl"
+        >
           <button
             type="button"
             role="option"

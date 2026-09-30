@@ -318,7 +318,7 @@ async function main() {
     for (const server of [...servers].reverse()) {
       await closeServer(server).catch(() => {});
     }
-    rmSync(profileDir, { recursive: true, force: true });
+    rmSync(profileDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
   }
 }
 

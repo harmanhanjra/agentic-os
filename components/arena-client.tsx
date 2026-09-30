@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, CircleAlert, RotateCcw, Timer } from 'lucide-react';
+import { ArrowUpRight, CircleAlert, RotateCcw, Scale, Timer, Trophy } from 'lucide-react';
 import { StatusChip } from './model-menu';
 import { isModelReady, useRegistry } from './use-registry';
 
@@ -14,12 +14,37 @@ interface ArenaResult {
   error?: string;
 }
 
+interface Judgment {
+  status?: 'NEEDS_TWO_ANSWERS' | 'DONE' | 'ERROR';
+  best?: { modelId: string; score: number } | null;
+  leaderboard?: Array<{
+    modelId: string;
+    score: number | null;
+    win: number;
+    loss: number;
+    tie: number;
+    winRate: number | null;
+  }>;
+  pairs?: Array<{ modelA: string; modelB: string; winner: string | null }>;
+  answers: Record<string, Record<string, unknown>>;
+  usage: unknown;
+  error?: string;
+}
+
+function readJudgeScore(answer: Record<string, unknown>): number | null {
+  const raw = answer.score ?? answer.value ?? answer.decision ?? answer.level;
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : null;
+}
+
 export function ArenaClient() {
   const { models, providers, loading, failed, reload } = useRegistry();
   const [prompt, setPrompt] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
+  const [judge, setJudge] = useState(true);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ArenaResult[] | null>(null);
+  const [judgment, setJudgment] = useState<Judgment | null>(null);
   const [meta, setMeta] = useState<{ latencyMs: number; requestId: string } | null>(null);
   const [failure, setFailure] = useState<{ message: string; code?: string; requestId?: string } | null>(null);
 
@@ -47,11 +72,16 @@ export function ArenaClient() {
     setBusy(true);
     setFailure(null);
     setResults(null);
+    setJudgment(null);
     try {
       const res = await fetch('/api/arena', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim(), modelIds: picked }),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          modelIds: picked,
+          judgeWithJev: judge,
+        }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
@@ -63,6 +93,7 @@ export function ArenaClient() {
         return;
       }
       setResults(body.data ?? []);
+      setJudgment(body.judgment ?? null);
       setMeta({
         latencyMs: body.latencyMs ?? 0,
         requestId: body.requestId ?? res.headers.get('x-request-id') ?? '',
@@ -165,20 +196,33 @@ export function ArenaClient() {
           </fieldset>
         )}
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-faint" role="status">
-            {picked.length < 2
-              ? `Select at least ${2 - picked.length} more model${picked.length === 1 ? '' : 's'}.`
-              : `${picked.length} selected · ${readyPicked.length} ready · ${picked.length - readyPicked.length} need a key`}
-          </p>
-          <button
-            type="button"
-            onClick={run}
-            disabled={!valid || busy || loading}
-            className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-ink transition hover:bg-accent-hover disabled:opacity-40"
-          >
-            {busy ? 'Running…' : 'Run comparison'} <ArrowUpRight size={14} aria-hidden />
-          </button>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={judge}
+              onChange={(e) => setJudge(e.target.checked)}
+              className="h-3.5 w-3.5 accent-current"
+            />
+            <Scale size={13} aria-hidden />
+            Judge the answers with Jev to pick the best one
+            <span className="text-faint">(one charged Jev call)</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] text-faint" role="status">
+              {picked.length < 2
+                ? `Select at least ${2 - picked.length} more model${picked.length === 1 ? '' : 's'}.`
+                : `${picked.length} selected · ${readyPicked.length} ready · ${picked.length - readyPicked.length} need a key`}
+            </p>
+            <button
+              type="button"
+              onClick={run}
+              disabled={!valid || busy || loading}
+              className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-accent-ink transition hover:bg-accent-hover disabled:opacity-40"
+            >
+              {busy ? 'Running…' : 'Run comparison'} <ArrowUpRight size={14} aria-hidden />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -247,6 +291,135 @@ export function ArenaClient() {
               </article>
             ))}
           </div>
+
+          {judgment && (
+            <section className="mt-4 rounded-2xl border border-focus bg-panel p-5" aria-label="Jev judgment">
+              <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-accent">
+                <Scale size={13} aria-hidden /> Jev judgment
+              </p>
+              {judgment.error && judgment.status !== 'DONE' ? (
+                <p className="mt-3 flex items-center gap-2 text-xs text-danger" role="status">
+                  <CircleAlert size={13} aria-hidden />
+                  {judgment.error}
+                </p>
+              ) : (
+                <>
+                  {judgment.leaderboard && judgment.leaderboard.length > 1 && (
+                    <div className="mt-3 overflow-hidden rounded-xl border border-line">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-line bg-canvas/60 text-[10px] uppercase tracking-[0.12em] text-faint">
+                            <th className="px-3 py-2 font-medium">#</th>
+                            <th className="px-3 py-2 font-medium">Model</th>
+                            <th className="px-3 py-2 text-right font-medium">Score</th>
+                            <th className="px-3 py-2 text-right font-medium">
+                              <span title="Wins / Losses / Ties">W-L-T</span>
+                            </th>
+                            <th className="px-3 py-2 text-right font-medium">Win rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {judgment.leaderboard.map((row, index) => {
+                            const top = judgment.best?.modelId === row.modelId;
+                            return (
+                              <tr
+                                key={row.modelId}
+                                className={`border-b border-line last:border-0 ${top ? 'bg-overlay' : ''}`}
+                              >
+                                <td className="px-3 py-2 font-mono text-faint">
+                                  {top ? <Trophy size={13} className="inline text-accent" aria-hidden /> : index + 1}
+                                </td>
+                                <td className="truncate px-3 py-2 font-medium">
+                                  {nameOf(row.modelId)}
+                                  <span className="ml-2 font-mono text-[10px] text-faint">
+                                    {row.modelId}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-right font-mono text-faint">
+                                  {row.score ?? '–'}/5
+                                </td>
+                                <td className="px-3 py-2 text-right font-mono text-faint">
+                                  {row.win}-{row.loss}-{row.tie}
+                                </td>
+                                <td className="px-3 py-2 text-right font-mono text-faint">
+                                  {row.winRate === null ? '–' : `${(row.winRate * 100).toFixed(1)}%`}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {judgment.pairs && judgment.pairs.length > 0 && (
+                    <div className="mt-3 space-y-1.5" aria-label="Head-to-head verdicts">
+                      {judgment.pairs.map((pair, i) => {
+                        const tied = pair.winner === null;
+                        return (
+                          <p key={i} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] text-muted">
+                            {tied ? (
+                              <>
+                                <span className="text-faint">Tie</span>
+                                <span className="mx-1 text-faint">·</span>
+                                <span className="truncate font-medium">{nameOf(pair.modelA)}</span>
+                                <span className="text-faint">vs</span>
+                                <span className="truncate font-medium">{nameOf(pair.modelB)}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Trophy size={11} className="shrink-0 text-accent" aria-hidden />
+                                <span className="truncate font-medium">{nameOf(pair.winner!)}</span>
+                                <span className="text-faint">beats</span>
+                                <span className="truncate">
+                                  {nameOf(pair.winner! === pair.modelA ? pair.modelB : pair.modelA)}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {judgment.best && (
+                    <p className="mt-4 flex items-center gap-2 rounded-lg bg-overlay px-3 py-2 text-sm font-medium">
+                      <Trophy size={15} className="text-accent" aria-hidden />
+                      Winner: {nameOf(judgment.best.modelId)}
+                      <span className="font-mono text-xs text-faint">score {judgment.best.score}/5</span>
+                    </p>
+                  )}
+
+                  {Object.keys(judgment.answers).length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      {Object.entries(judgment.answers).map(([modelId, answer]) => {
+                        const score = readJudgeScore(answer);
+                        if (score === null) return null;
+                        const top = judgment.best?.modelId === modelId;
+                        return (
+                          <p
+                            key={modelId}
+                            className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
+                              top ? 'bg-overlay text-ink' : 'text-muted'
+                            }`}
+                          >
+                            <span className="truncate font-medium">{nameOf(modelId)}</span>
+                            <span className="ml-3 shrink-0 font-mono text-[10px] text-faint">
+                              {score}/5
+                            </span>
+                          </p>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className="mt-3 text-[10px] leading-4 text-faint">
+                    Advisory and generated by Jev (jev-latest); scores and head-to-head verdicts are
+                    predictions, never guarantees. Nothing was merged or applied automatically.
+                  </p>
+                </>
+              )}
+            </section>
+          )}
         </div>
       )}
     </div>

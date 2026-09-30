@@ -44,15 +44,23 @@ export interface BrowserSnapshot {
 export interface BrowserActionLog {
   index: number;
   action: BrowserAction;
-  status: 'completed' | 'blocked' | 'failed';
+  status: 'completed' | 'blocked' | 'failed' | 'approved';
   message: string;
   url?: string;
   title?: string;
 }
 
+export interface PendingApproval {
+  id: string;
+  risk: string;
+  action: string;
+  detail: string;
+  expiresAt: string;
+}
+
 export interface BrowserRunResult {
   runId: string;
-  status: 'completed' | 'blocked' | 'max_actions' | 'failed';
+  status: 'completed' | 'blocked' | 'awaiting_approval' | 'max_actions' | 'failed' | 'cancelled';
   objective: string;
   model: string;
   finalUrl: string;
@@ -62,6 +70,10 @@ export interface BrowserRunResult {
   extracted: string[];
   screenshotDataUrl?: string;
   latencyMs: number;
+  /** Present when the run stopped for an explicit approval. */
+  pendingApproval?: PendingApproval;
+  /** True when DOM semantics were thin and the screenshot is the record. */
+  visualFallback?: boolean;
 }
 
 export interface ComputerWorkerResult {

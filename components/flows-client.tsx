@@ -29,48 +29,6 @@ function loadFlows(): FlowStep[] {
   }
 }
 
-async function runFlowStep(input: string, modelId: string | undefined, signal: AbortSignal): Promise<string> {
-  const res = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      messages: [{ role: 'user', content: input.slice(0, 20_000) }],
-      ...(modelId ? { modelId } : {}),
-      includeSkills: false,
-    }),
-    signal,
-  });
-  if (!res.ok || !res.body) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error?.message ?? 'The flow step could not run.');
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let output = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('data:')) continue;
-      const payload = trimmed.slice(5).trim();
-      if (payload === '[DONE]') continue;
-      try {
-        const json = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string } }> };
-        const token = json.choices?.[0]?.delta?.content;
-        if (token) output += token;
-      } catch {
-        /* ignore partial frames */
-      }
-    }
-  }
-  return output;
-}
-
 export function FlowsClient() {
   const [steps, setSteps] = useState<FlowStep[]>([]);
   const [modelSel, setModelSel] = useState<string>(AUTO_ID);
@@ -78,6 +36,7 @@ export function FlowsClient() {
   const [busy, setBusy] = useState(false);
   const [outputs, setOutputs] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [lastMeta, setLastMeta] = useState<string | null>(null);
 
   useEffect(() => {
     setSteps(loadFlows());
@@ -107,23 +66,43 @@ export function FlowsClient() {
     setBusy(true);
     setError(null);
     setOutputs({});
+    setLastMeta(null);
     const controller = new AbortController();
     const modelId = modelSel === AUTO_ID ? undefined : modelSel;
     try {
-      let current = sourceText.trim();
-      const next: Record<string, string> = {};
-      for (const step of steps) {
-        const rendered = step.prompt.replace(/\{\{\s*input\s*\}\}/gi, current);
-        const result = await runFlowStep(
-          rendered.includes(current) ? rendered : `${rendered}\n\nInput:\n${current}`,
-          modelId,
-          controller.signal,
+      // Server-side runner: one metered request, per-step results, run history.
+      const response = await fetch('/api/flows/run', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sourceText: sourceText.trim(),
+          steps: steps.map((s) => ({ name: s.name || 'Step', prompt: s.prompt })),
+          ...(modelId ? { modelId } : {}),
+        }),
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          (body?.error?.message ?? 'The flow could not complete.') +
+            (body?.requestId ? ` Request: ${body.requestId}` : ''),
         );
-        next[step.id] = result;
-        setOutputs({ ...next });
-        current = result;
       }
+      const run = body?.data?.run as {
+        runId: string;
+        model: string;
+        latencyMs: number;
+        steps: Array<{ name: string; output: string }>;
+      };
+      const next: Record<string, string> = {};
+      run.steps.forEach((stepResult, i) => {
+        const step = steps[i];
+        if (step) next[step.id] = stepResult.output;
+      });
+      setOutputs(next);
+      setLastMeta(`${run.model} · ${(run.latencyMs / 1000).toFixed(1)}s · run ${run.runId.slice(0, 8)}`);
     } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'The flow could not complete.');
     } finally {
       setBusy(false);
@@ -245,11 +224,15 @@ export function FlowsClient() {
                   onClick={() => {
                     setOutputs({});
                     setError(null);
+                    setLastMeta(null);
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3.5 py-2 text-xs text-muted hover:border-line-strong hover:text-ink"
                 >
                   <RotateCcw size={12} aria-hidden /> Clear
                 </button>
+              )}
+              {lastMeta && (
+                <span className="font-mono text-[10px] text-faint">{lastMeta}</span>
               )}
             </div>
             {error && (
@@ -268,7 +251,7 @@ export function FlowsClient() {
               {[
                 'Compose Input → Prompt → Model → Output pipelines',
                 'Steps persist on this device and rerun any time',
-                'Every step streams from a real provider with honest errors',
+                'Server-side runner with per-step results, usage metering, and run history',
               ].map((bullet) => (
                 <li key={bullet} className="flex items-start gap-2.5 text-[13px] leading-5 text-muted">
                   <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />

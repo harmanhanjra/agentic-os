@@ -12,6 +12,9 @@ const snapshot: BrowserSnapshot = {
     { ref: 's1', role: 'button', text: 'Buy now', type: null, href: null },
     { ref: 's2', role: 'input', text: 'Password', type: 'password', href: null },
     { ref: 's3', role: 'input', text: 'Search', type: 'text', href: null },
+    { ref: 's4', role: 'button', text: 'Apply now', type: null, href: null },
+    { ref: 's5', role: 'button', text: 'Contact recruiter', type: null, href: null },
+    { ref: 's6', role: 'button', text: 'Add to cart', type: null, href: null },
   ],
 };
 
@@ -31,6 +34,16 @@ describe('Browser Use V0.3', () => {
     expect(decision.actions[0]).toMatchObject({ type: 'done', summary: 'Finished' });
   });
 
+  it('normalizes common model action aliases into the guarded action schema', () => {
+    const decision = parseBrowserDecision(
+      '{"actions":[{"type":"browser_navigate","url":"https://example.com"},{"action":"browser_read"}]}',
+    );
+    expect(decision.actions).toEqual([
+      { type: 'navigate', url: 'https://example.com' },
+      { type: 'extract' },
+    ]);
+  });
+
   it('allows low-risk DOM interactions', () => {
     expect(evaluateBrowserAction({ type: 'click', ref: 's0' }, snapshot).allowed).toBe(true);
     expect(
@@ -47,6 +60,21 @@ describe('Browser Use V0.3', () => {
       evaluateBrowserAction({ type: 'fill', ref: 's2', text: 'secret' }, snapshot),
     ).toMatchObject({ allowed: false, risk: 'credential' });
     expect(evaluateBrowserAction({ type: 'press', key: 'Enter' }, snapshot).allowed).toBe(false);
+  });
+
+  it('pauses before job applications, recruiter contact, and cart actions', () => {
+    expect(evaluateBrowserAction({ type: 'click', ref: 's4' }, snapshot)).toMatchObject({
+      allowed: false,
+      risk: 'external-communication',
+    });
+    expect(evaluateBrowserAction({ type: 'click', ref: 's5' }, snapshot)).toMatchObject({
+      allowed: false,
+      risk: 'external-communication',
+    });
+    expect(evaluateBrowserAction({ type: 'click', ref: 's6' }, snapshot)).toMatchObject({
+      allowed: false,
+      risk: 'financial',
+    });
   });
 
   it('rejects malformed agent plans', () => {

@@ -1,3 +1,4 @@
+import { findLocalBrowserExecutable } from '@/lib/computer/local-browser';
 import { randomUUID } from 'node:crypto';
 import { probeCdpBrowser } from '@/lib/computer/cdp';
 import { computerWorkerConfigured, probeComputerWorker } from '@/lib/computer/worker';
@@ -9,6 +10,8 @@ export async function GET() {
   const requestId = randomUUID();
   const endpoint = process.env.BROWSER_CDP_URL?.trim();
   const browserConfigured = Boolean(endpoint);
+  const localLaunchAvailable = process.env.NODE_ENV !== 'production'
+    ? Boolean(await findLocalBrowserExecutable()) : false;
 
   const [browserReachable, computerProbe] = await Promise.all([
     endpoint ? probeCdpBrowser(endpoint) : Promise.resolve(false),
@@ -25,6 +28,7 @@ export async function GET() {
         browser: {
           configured: browserConfigured,
           reachable: browserReachable,
+          launchable: localLaunchAvailable,
           mode: 'cdp-dom-first',
         },
         computer: {

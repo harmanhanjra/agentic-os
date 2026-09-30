@@ -17,7 +17,7 @@ export interface ActionPolicyResult {
 }
 
 const HIGH_RISK_TEXT =
-  /\b(buy\s*now|purchase|place\s+order|pay\b|checkout|transfer|withdraw|send\s+money|delete|remove\s+account|close\s+account|publish|post\b|send\b|submit\s+application|confirm\s+order|book\s+now|sign\s*in|log\s*in|create\s+account)\b/i;
+  /\b(buy\s*now|purchase|place\s+order|add\s+to\s+cart|pay\b|checkout|transfer|withdraw|send\s+money|delete|remove\s+account|close\s+account|publish|post\b|send\b|apply\s*(now|for|to)?|submit\s+(a\s+)?(job\s+)?application|contact\s+(the\s+)?(recruiter|employer)|message\s+(the\s+)?(recruiter|employer)|confirm\s+order|book\s+now|sign\s*in|log\s*in|create\s+account)\b/i;
 const CREDENTIAL_TEXT =
   /\b(password|passcode|otp|one[- ]time|security\s+code|cvv|cvc|card\s+number|credit\s+card|debit\s+card|bank\s+account|routing\s+number)\b/i;
 
@@ -96,7 +96,7 @@ export function evaluateBrowserAction(
   }
   if (HIGH_RISK_TEXT.test(descriptor)) {
     const lower = descriptor.toLowerCase();
-    const risk = /buy|purchase|order|pay|checkout|transfer|withdraw|money/.test(lower)
+    const risk = /buy|purchase|order|cart|pay|checkout|transfer|withdraw|money/.test(lower)
       ? 'financial'
       : /delete|remove|close/.test(lower)
         ? 'destructive'

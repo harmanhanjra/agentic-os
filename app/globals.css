@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @theme {
   --color-canvas: #0b0c0b;
@@ -56,6 +57,43 @@
   }
 }
 
+/* shadcn/ui slot aliases layered on the ScaleOS tokens. Utilities like
+   bg-background / text-muted-foreground / border-border resolve to the
+   canonical ScaleOS semantic tokens so the design system stays single-source. */
+@theme inline {
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-panel);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-overlay);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-ink);
+  --color-secondary: var(--color-raised);
+  --color-secondary-foreground: var(--color-ink);
+  /* NOTE: --color-muted is intentionally NOT redefined here. The base @theme
+     above owns --color-muted (the gray text token); redefining it in this
+     block would hijack every text-muted utility app-wide. Muted surfaces
+     use --color-raised directly. */
+  --color-muted-foreground: var(--color-muted);
+  --color-accent-foreground: var(--color-accent-ink);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-danger-ink);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line-strong);
+  --color-ring: var(--color-focus);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  color-scheme: dark;
+}
+
 /* Light theme: same semantic tokens, light values. Toggled via
    document.documentElement.dataset.theme = "light" | "dark". */
 [data-theme="light"] {
@@ -76,10 +114,6 @@
   --color-danger: #b3261e;
   --color-danger-ink: #fdecea;
   color-scheme: light;
-}
-
-:root {
-  color-scheme: dark;
 }
 
 * {

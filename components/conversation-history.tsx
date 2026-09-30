@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { MessageSquare, Plus, Trash2, X } from 'lucide-react';
 import type { Conversation } from '@/lib/chat/storage';
 
@@ -34,6 +35,15 @@ export function ConversationHistory({
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }) {
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCloseMobile();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen, onCloseMobile]);
+
   const body = (
     <div className="flex h-full flex-col">
       <div className="p-3">
@@ -85,7 +95,7 @@ export function ConversationHistory({
                 type="button"
                 onClick={() => onDelete(c.id)}
                 aria-label={`Delete "${c.title}"`}
-                className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-md p-1.5 text-faint transition hover:bg-canvas hover:text-danger group-hover:block"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-faint opacity-0 transition hover:bg-canvas hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
               >
                 <Trash2 size={13} aria-hidden />
               </button>
@@ -102,7 +112,12 @@ export function ConversationHistory({
         <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-hidden">{body}</div>
       </aside>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Chat history"
+        >
           <div className="absolute inset-0 bg-black/60" onClick={onCloseMobile} aria-hidden />
           <div className="absolute inset-y-0 left-0 w-72 overflow-hidden border-r border-line bg-panel">
             <div className="flex justify-end p-2">
@@ -110,7 +125,7 @@ export function ConversationHistory({
                 type="button"
                 onClick={onCloseMobile}
                 aria-label="Close history"
-                className="rounded-lg p-2 text-muted hover:bg-raised hover:text-ink"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted hover:bg-raised hover:text-ink"
               >
                 <X size={16} aria-hidden />
               </button>

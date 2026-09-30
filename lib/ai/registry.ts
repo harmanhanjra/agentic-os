@@ -81,6 +81,25 @@ const nvidia = (
   local: false,
 });
 
+const experiential = (
+  id: string,
+  externalModelId: string,
+  displayName: string,
+  capabilities: ModelCapability[],
+  contextWindow = 128_000,
+): AIModel => ({
+  id: `experiential:${id}`,
+  providerId: 'experiential',
+  externalModelId,
+  displayName,
+  capabilities,
+  contextWindow,
+  supportsStreaming: true,
+  supportsTools: capabilities.includes('tools'),
+  enabled: true,
+  local: false,
+});
+
 export const developmentModels: AIModel[] = [
   // ---- OpenAI ----
   openai('gpt-4.1', 'gpt-4.1', 'GPT-4.1', ['text', 'vision', 'tools', 'json'], 1_048_576),
@@ -106,6 +125,9 @@ export const developmentModels: AIModel[] = [
   nvidia('diffusiongemma-26b', 'google/diffusiongemma-26b-a4b-it', 'DiffusionGemma 26B', ['text']),
   nvidia('laguna-xs', 'poolside/laguna-xs-2.1', 'Laguna XS 2.1', ['text']),
   nvidia('ising-calibration', 'nvidia/ising-calibration-1.5-31b', 'Ising Calibration 31B', ['text']),
+
+  // ---- Experiential gateway (OpenAI-compatible at api.experientiallabs.ai/v1) ----
+  experiential('gpt-5.6-luna', 'gpt-5.6-luna', 'GPT-5.6 Luna', ['text', 'tools', 'json'], 128_000),
 
   // ---- Higgsfield media applications (official API) ----
   higgsfieldImage('seedream-v4', 'bytedance/seedream/v4/text-to-image', 'Seedream v4'),
