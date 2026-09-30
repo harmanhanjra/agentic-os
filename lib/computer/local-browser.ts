@@ -63,7 +63,7 @@ export async function launchLocalBrowser(): Promise<LocalBrowserSession> {
 
   const profile = await mkdtemp(join(tmpdir(), 'scaleos-browser-'));
   const port = await reserveLoopbackPort();
-  const child: ChildProcess = spawn(executable, [
+  const child: ChildProcess = spawn(/* turbopackIgnore: true */ executable, [
     '--headless=new',
     '--disable-gpu',
     '--no-first-run',

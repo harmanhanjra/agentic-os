@@ -1,18 +1,22 @@
+import { runComputerAgent } from '@/lib/computer/desktop-agent';
 import { randomUUID } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { computerWorkerConfigured, runComputerWorker } from '@/lib/computer/worker';
-import { fail, ok } from '@/lib/api/envelope';
+import { computerWorkerConfigured } from '@/lib/computer/worker';
+import { fail, ok, statusFor } from '@/lib/api/envelope';
+import { ScaleOSError } from '@/lib/ai/types';
 import { recordUsage } from '@/lib/usage/meter';
 import { saveRun } from '@/lib/runs/store';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const RequestSchema = z.object({
   objective: z.string().trim().min(3).max(20_000),
+  modelId: z.string().min(1).max(300).optional(),
   maxActions: z.number().int().min(1).max(30).default(15),
+  includeScreenshot: z.boolean().default(true),
 });
 
 export async function POST(request: NextRequest) {
@@ -38,8 +42,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await runComputerWorker(parsed.data);
-    recordUsage({ kind: 'computer', latencyMs: Date.now() - started, requestId, ok: true });
+    const result = await runComputerAgent(parsed.data);
+    recordUsage({ kind: 'computer', latencyMs: Date.now() - started, requestId,
+      ok: result.status === 'completed',
+      ...(result.status === 'completed' ? {} : { errorCode: `COMPUTER_${result.status.toUpperCase()}` }),
+    });
     saveRun({
       runId: (typeof result.runId === 'string' && result.runId) || requestId,
       kind: 'computer',
@@ -51,9 +58,13 @@ export async function POST(request: NextRequest) {
       requestId,
       result,
     });
-    return ok({ data: result }, requestId, rateLimitHeaders(rate));
+    return ok(result, requestId, rateLimitHeaders(rate));
   } catch (error) {
-    recordUsage({ kind: 'computer', latencyMs: Date.now() - started, requestId, ok: false, errorCode: 'COMPUTER_RUN_FAILED' });
+    recordUsage({ kind: 'computer', latencyMs: Date.now() - started, requestId, ok: false,
+      errorCode: error instanceof ScaleOSError ? error.code : 'COMPUTER_RUN_FAILED' });
+    if (error instanceof ScaleOSError) {
+      return fail(error.code, error.message, statusFor(error.code), requestId);
+    }
     return fail(
       'COMPUTER_RUN_FAILED',
       error instanceof Error && process.env.NODE_ENV !== 'production'

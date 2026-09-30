@@ -42,7 +42,7 @@ output — unconfigured routers report honest errors with request IDs.
 - **Media jobs** — Higgsfield image generation with async job status
   polling (`/api/images/*`).
 - **Security boundaries** — Zod validation at every edge, encrypted credentials, masked secrets, DNS-aware SSRF and redirect protection, hosted provider-admin protection, request throttling, security headers, request IDs, and escaped model markdown.
-- **CI quality gates** — every V0.2 push runs typecheck, Vitest, and a production Next.js build in GitHub Actions.
+- **CI quality gates** — master and pull requests run typecheck, Vitest, a real Chrome Browser Use E2E, a full Computer Use orchestration E2E, and a production Next.js build.
 
 ## Quickstart
 
@@ -77,7 +77,7 @@ auto-routing light up immediately.
 | `CHROME_EXECUTABLE_PATH` | Optional local Chrome/Chromium/Edge executable path for development browser automation |
 | `SCALEOS_BROWSER_ALLOW_PRIVATE` | Local-development-only opt-in for private/local browser targets |
 | `SCALEOS_COMPUTER_WORKER_URL` | Isolated desktop worker endpoint for Computer Use |
-| `SCALEOS_COMPUTER_WORKER_TOKEN` | Optional bearer token for the desktop worker |
+| `SCALEOS_COMPUTER_WORKER_TOKEN` | Bearer token shared with the desktop worker |\n| `SCALEOS_COMPUTER_ALLOW_PRIVATE` | Development-only opt-in for a localhost/private desktop worker |
 
 See `.env.example`. Provider keys stay server-side. Never commit `.env.local`
 or anything under `data/`.
@@ -118,6 +118,7 @@ Every API response carries `requestId` (body + `x-request-id` header).
 pnpm lint        # tsc --noEmit
 pnpm typecheck   # tsc --noEmit
 pnpm test        # vitest (routing, registry, dispatch, crypto, skills, storage)
+npm run test:e2e:browser  # real Chrome/CDP Browser Use end-to-end test
 pnpm build       # production build
 ```
 
@@ -137,7 +138,7 @@ lib/usage/      # local usage metering + summaries
 lib/store/      # file-backed JSON collections (PostgreSQL-ready boundary)
 lib/skills/     # host skill scanner + chat context builder
 lib/chat/       # conversation persistence (localStorage slice, DB-ready shape)
-lib/computer/   # CDP browser driver, policy engine, browser agent, desktop worker adapter
+lib/computer/   # CDP browser driver + vision desktop agent + worker client + safety policies\ncomputer_worker/ # real Python desktop worker (screen, mouse, keyboard, virtual CI backend)
 tests/          # contract + unit tests
 docs/           # architecture + provider adapter notes
 ```
@@ -153,3 +154,11 @@ reasoning models currently exceed the 120s upstream budget on trial-tier
 keys — tracked as a follow-up (longer budgets / reasoning params / paid
 tier). The UI exposes no fake success state; unavailable integrations
 remain explicit empty states.
+
+## Isolated desktop worker
+
+The reconciled branch includes the vision-driven desktop loop and the Python
+`computer_worker` service from the remote branch. See [worker setup](computer_worker/README.md)
+and [Computer Use architecture](docs/computer-use.md). Desktop operation requires
+an explicitly configured worker and a vision-capable provider; it is not implied
+by a successful workspace build. Local usage metering and run history are retained.

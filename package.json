@@ -1,13 +1,15 @@
 {
   "name": "scaleos-ai",
-  "version": "0.3.0-alpha.1",
+  "version": "0.3.0-alpha.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e:browser": "node scripts/e2e-browser-use.mjs",
+    "test:e2e:computer": "node scripts/e2e-computer-use.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

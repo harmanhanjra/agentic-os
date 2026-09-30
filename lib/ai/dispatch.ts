@@ -92,10 +92,12 @@ function endpointFor(providerId: string): {
     );
   }
   const url = `${auth.baseURL}/chat/completions`;
-  // Local routers (Ollama) are allowed to stay on loopback; hosted
-  // deployments still block private targets for remote providers.
-  assertSafeProviderUrl(url, def.local ? true : process.env.NODE_ENV !== 'production');
-  return { url, apiKey: auth.apiKey, allowLocal: def.local };
+  // Local routers are allowed to stay on loopback. In development, custom
+  // OpenAI-compatible base URLs may also point to localhost for testing.
+  // Production still blocks private targets for remote providers.
+  const allowPrivate = def.local || process.env.NODE_ENV !== 'production';
+  assertSafeProviderUrl(url, allowPrivate);
+  return { url, apiKey: auth.apiKey, allowLocal: allowPrivate };
 }
 
 /**
@@ -129,6 +131,45 @@ export async function postChatCompletions(
   } catch (error) {
     if (signal?.aborted) throw signal.reason ?? error;
     throw new ScaleOSError('NETWORK_ERROR', 'Could not safely reach the provider.');
+  }
+}
+
+
+export async function postVisionChatCompletions(
+  target: ResolvedTarget,
+  system: string,
+  userText: string,
+  imageDataUrl: string,
+): Promise<Response> {
+  const { url, apiKey, allowLocal } = endpointFor(target.providerId);
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  try {
+    return await safeProviderFetch(
+      url,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: target.externalModelId,
+          messages: [
+            { role: 'system', content: system },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: userText },
+                { type: 'image_url', image_url: { url: imageDataUrl } },
+              ],
+            },
+          ],
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(120_000),
+      },
+      allowLocal,
+    );
+  } catch {
+    throw new ScaleOSError('NETWORK_ERROR', 'Could not safely reach the vision provider.');
   }
 }
 

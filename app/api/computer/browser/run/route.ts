@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       requestId,
       result,
     });
-    return ok({ run: result, data: result }, requestId, rateLimitHeaders(rate));
+    return ok(result, requestId, rateLimitHeaders(rate));
   } catch (error) {
     recordUsage({
       kind: 'browser',

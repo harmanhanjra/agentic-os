@@ -1,7 +1,7 @@
+import { findLocalBrowserExecutable } from '@/lib/computer/local-browser';
 import { randomUUID } from 'node:crypto';
 import { probeCdpBrowser } from '@/lib/computer/cdp';
-import { computerWorkerConfigured } from '@/lib/computer/worker';
-import { findLocalBrowserExecutable } from '@/lib/computer/local-browser';
+import { computerWorkerConfigured, probeComputerWorker } from '@/lib/computer/worker';
 
 export const runtime = 'nodejs';
 export const maxDuration = 15;
@@ -10,10 +10,17 @@ export async function GET() {
   const requestId = randomUUID();
   const endpoint = process.env.BROWSER_CDP_URL?.trim();
   const browserConfigured = Boolean(endpoint);
-  const browserReachable = endpoint ? await probeCdpBrowser(endpoint) : false;
   const localLaunchAvailable = process.env.NODE_ENV !== 'production'
-    ? Boolean(await findLocalBrowserExecutable())
-    : false;
+    ? Boolean(await findLocalBrowserExecutable()) : false;
+
+  const [browserReachable, computerProbe] = await Promise.all([
+    endpoint ? probeCdpBrowser(endpoint) : Promise.resolve(false),
+    computerWorkerConfigured()
+      ? probeComputerWorker()
+      : Promise.resolve({ reachable: false as const }),
+  ]);
+
+  const computerHealth = 'health' in computerProbe ? computerProbe.health : undefined;
 
   return Response.json(
     {
@@ -26,7 +33,11 @@ export async function GET() {
         },
         computer: {
           configured: computerWorkerConfigured(),
-          mode: 'permissioned-worker',
+          reachable: computerProbe.reachable,
+          healthy: computerHealth?.status === 'healthy',
+          mode: computerHealth?.mode ?? 'vision-desktop-worker',
+          platform: computerHealth?.platform ?? null,
+          capabilities: computerHealth?.capabilities ?? [],
         },
         policy: {
           financial: false,

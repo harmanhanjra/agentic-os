@@ -1,4 +1,4 @@
-# ScaleOS AI V0.2 Task Checklist
+# ScaleOS AI V0.3 Task Checklist
 
 - [x] Foundation repository and documentation
   - Acceptance: AGENTS.md, spec, plan, and this checklist exist.
@@ -61,3 +61,8 @@
 - [x] Local usage metering (`/api/usage`) wired into Settings.
 - [x] Hardened security headers (CORP, X-Permitted-Cross-Domain-Policies, HSTS).
 - [x] 75 tests green (10 new: kernel, tools, flows, runs, usage, envelope), typecheck + production build green.
+
+## Reconciled remote work — 1 October 2026
+- [x] Preserve remote vision-driven desktop worker and worker health contract.
+- [x] Preserve local Browser Use launch fallback, permission kernel, usage metering, and run history.
+- [ ] Revalidate desktop control with a configured isolated worker and vision provider.
